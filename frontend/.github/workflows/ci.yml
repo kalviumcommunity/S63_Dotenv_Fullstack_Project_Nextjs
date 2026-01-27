@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - master
-      # agar main hai to main likh dena
+      # agar branch main hai to master ki jagah main likho
 
 jobs:
   build:
