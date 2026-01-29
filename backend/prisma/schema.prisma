@@ -35,4 +35,5 @@ model Task {
   createdAt DateTime  @default(now())
 
   @@index([projectId])
+  @@index([status])   // ✅ ADDED BY ME (Query optimisation)
 }
