@@ -1,7 +1,6 @@
+import "dotenv/config";
 import express from "express";
-import dotenv from "dotenv";
 import { prisma } from "./lib/prisma";
-dotenv.config();
 const app = express();
 app.use(express.json());
 
