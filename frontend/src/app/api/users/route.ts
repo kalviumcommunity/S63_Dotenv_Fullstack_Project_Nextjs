@@ -1,32 +1,53 @@
-import { NextResponse } from "next/server";
+import { sendSuccess, sendError } from "@/lib/responseHandler";
+import { ERROR_CODES } from "@/lib/errorCodes";
 
 /**
  * GET /api/users
- * Get all users (dummy for now)
  */
 export async function GET() {
-  return NextResponse.json([
-    { id: 1, name: "Alice" },
-    { id: 2, name: "Bob" }
-  ]);
+  try {
+    const users = [
+      { id: 1, name: "Alice" },
+      { id: 2, name: "Bob" },
+    ];
+
+    return sendSuccess(users, "Users fetched successfully");
+  } catch (err) {
+    return sendError(
+      "Failed to fetch users",
+      ERROR_CODES.INTERNAL_ERROR,
+      500,
+      err
+    );
+  }
 }
 
 /**
  * POST /api/users
- * Create a new user
  */
 export async function POST(req: Request) {
-  const body = await req.json();
+  try {
+    const body = await req.json();
 
-  if (!body.name) {
-    return NextResponse.json(
-      { error: "Name is required" },
-      { status: 400 }
+    if (!body.name) {
+      return sendError(
+        "Missing required field: name",
+        ERROR_CODES.VALIDATION_ERROR,
+        400
+      );
+    }
+
+    return sendSuccess(
+      body,
+      "User created successfully",
+      201
+    );
+  } catch (err) {
+    return sendError(
+      "User creation failed",
+      ERROR_CODES.INTERNAL_ERROR,
+      500,
+      err
     );
   }
-
-  return NextResponse.json(
-    { message: "User created", data: body },
-    { status: 201 }
-  );
 }
