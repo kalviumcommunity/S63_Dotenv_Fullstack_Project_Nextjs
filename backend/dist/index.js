@@ -5,18 +5,21 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 require("dotenv/config");
 const express_1 = __importDefault(require("express"));
+const cors_1 = __importDefault(require("cors"));
 const prisma_1 = require("./lib/prisma");
+const auth_1 = __importDefault(require("./routes/auth"));
 const app = (0, express_1.default)();
+app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 /**
-* Health check route
-*/
+ * Health check route
+ */
 app.get("/health", (_req, res) => {
     res.json({ status: "Backend running" });
 });
 /**
-* Prisma DB test route
-*/
+ * Prisma DB test route
+ */
 app.get("/test-db", async (_req, res) => {
     try {
         const users = await prisma_1.prisma.user.findMany();
@@ -27,6 +30,10 @@ app.get("/test-db", async (_req, res) => {
         res.status(500).json({ error: "Database query failed" });
     }
 });
+/**
+ * API routes
+ */
+app.use("/api/auth", auth_1.default);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Backend running on port ${PORT}`);

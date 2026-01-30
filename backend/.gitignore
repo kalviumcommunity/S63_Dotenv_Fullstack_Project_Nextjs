@@ -1,5 +1,14 @@
 node_modules
+
 # Keep environment variables out of version control
 .env
 
+# Build / output
+dist
+.next
+
+# Prisma generated client cache
+node_modules/.prisma
+
+# Generated Prisma types (if any)
 /src/generated/prisma
