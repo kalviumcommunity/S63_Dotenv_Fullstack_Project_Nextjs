@@ -1,5 +1,6 @@
 import { sendSuccess, sendError } from "@/lib/responseHandler";
 import { ERROR_CODES } from "@/lib/errorCodes";
+import { handleError } from "@/lib/errorHandler";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "http://localhost:5000";
 
@@ -42,12 +43,6 @@ export async function POST(req: Request) {
       data.message || "Login successful"
     );
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Unknown error";
-    return sendError(
-      "Login failed",
-      ERROR_CODES.INTERNAL_ERROR,
-      500,
-      errorMessage
-    );
+    return handleError(err, { route: "/api/auth/login", method: "POST" });
   }
 }
