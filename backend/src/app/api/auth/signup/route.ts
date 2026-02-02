@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
 
-const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey123";
-
 export async function POST(req: NextRequest) {
   try {
     const { name, email, password } = await req.json();
