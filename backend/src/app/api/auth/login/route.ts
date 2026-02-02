@@ -3,13 +3,19 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prisma } from "@/lib/prisma";
 
-const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey123";
+const rawJwtSecret = process.env.JWT_SECRET;
+
+if (!rawJwtSecret) {
+  throw new Error("JWT_SECRET is not configured in the backend environment");
+}
+
+const JWT_SECRET: string = rawJwtSecret;
 
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
 
-    const user = await prisma.user.findUnique({
+    const user = (await prisma.user.findUnique({
       where: { email },
       select: {
         id: true,
@@ -17,8 +23,9 @@ export async function POST(req: NextRequest) {
         email: true,
         password: true,
         createdAt: true,
-      },
-    });
+        role: true,
+      } as any,
+    })) as any;
 
     if (!user) {
       return NextResponse.json(
@@ -56,7 +63,7 @@ export async function POST(req: NextRequest) {
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
       { expiresIn: "1h" }
     );
