@@ -4,37 +4,31 @@ import { ERROR_CODES } from "@/lib/errorCodes";
 import { verifyAuthToken } from "@/lib/auth";
 import { userSchema } from "@/lib/schemas/userSchema";
 import { ZodError } from "zod";
+import { handleError } from "@/lib/errorHandler";
 
 /**
  * GET /api/users (Protected Route)
  */
 export async function GET(req: NextRequest) {
   try {
-    // Verify authentication token
     const authHeader = req.headers.get("authorization");
     verifyAuthToken(authHeader);
 
-    // If token is valid, return users
     const users = [
       { id: 1, name: "Alice" },
       { id: 2, name: "Bob" },
     ];
 
     return sendSuccess(users, "Users fetched successfully");
-  } catch (err: any) {
-    if (err.status) {
+  } catch (err) {
+    if (err && typeof err === "object" && "status" in err && typeof (err as { status: number }).status === "number") {
       return sendError(
-        err.message || "Authentication failed",
-        err.code || ERROR_CODES.VALIDATION_ERROR,
-        err.status
+        (err as { message?: string }).message || "Authentication failed",
+        (err as { code?: string }).code || ERROR_CODES.VALIDATION_ERROR,
+        (err as { status: number }).status
       );
     }
-    return sendError(
-      "Failed to fetch users",
-      ERROR_CODES.INTERNAL_ERROR,
-      500,
-      err instanceof Error ? err.message : "Unknown error"
-    );
+    return handleError(err, { route: "/api/users", method: "GET" });
   }
 }
 
@@ -65,12 +59,6 @@ export async function POST(req: Request) {
         }))
       );
     }
-
-    return sendError(
-      "Unexpected error",
-      ERROR_CODES.INTERNAL_ERROR,
-      500,
-      error
-    );
+    return handleError(error, { route: "/api/users", method: "POST" });
   }
 }
