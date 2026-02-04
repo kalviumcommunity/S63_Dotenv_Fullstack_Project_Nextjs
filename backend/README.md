@@ -1,6 +1,6 @@
-# Backend API Server (Next.js)
+# Backend API Server (Next.js) – CivicTrack
 
-This is a Next.js API-only backend server running on port 5000.
+This is a Next.js API-only backend server running on port 5000 for **CivicTrack** (transparent urban grievance redressal).
 
 ## Setup
 
@@ -32,6 +32,14 @@ The server will start on http://localhost:5000
 - `GET /api/test-db` - Test database connection
 - `POST /api/auth/signup` - User signup
 - `POST /api/auth/login` - User login
+- `GET /api/issues` - List issues (query: category, status, limit, offset)
+- `POST /api/issues` - Create issue (title, description, category, latitude, longitude, isAnonymous, reportedById)
+- `GET /api/issues/:id` - Get issue by id or publicId (e.g. CT-00001)
+- `PATCH /api/issues/:id` - Update issue (status, assignedToId, resolutionNotes, proofUrls, etc.)
+
+## CivicTrack: Role enum
+
+User `role` is one of: **citizen**, **officer**, **admin**. If you have an existing database with the old Role enum (`user`, `admin`), run a migration to add new values and map existing data (e.g. set `user` → `citizen`) before or after applying schema changes; see Prisma docs for enum migrations.
 
 ## Authentication vs Authorization
 
@@ -114,6 +122,51 @@ This project follows the **least-privilege principle**:
 
 By default, users can only access what they need (`/api/users` with valid JWT), while sensitive admin operations are limited to a small, trusted set of identities.
 
+## Redis Caching
+
+A production-ready Redis caching layer is integrated to improve API performance for frequently read data.
+
+### Why Redis was added
+
+- **Reduce database load**: List and single-issue GETs are read-heavy; caching avoids repeated Prisma/PostgreSQL round-trips.
+- **Lower latency**: Cached responses are served from memory (Redis), so cold vs cached request latency is measurably lower.
+- **Same API contract**: Response shapes and status codes are unchanged; caching is transparent to clients.
+
+### Cache-aside strategy (lazy loading)
+
+- **Flow**: On a GET request we first check Redis. On **cache hit** we return the stored JSON immediately. On **cache miss** we load from the database, store the serialized response in Redis with a TTL, then return it.
+- **Single Redis instance**: The app uses one shared Redis client (see `src/lib/redis.ts`); connection is created from `REDIS_URL` and reused.
+- **Error safety**: If Redis is unavailable or any cache operation fails, the API does not crash: we log the error and fall back to the database. Responses remain correct.
+
+### TTL policy and reasoning
+
+- **List endpoint** (`GET /api/issues`): Default TTL **60 seconds** (`CACHE_TTL_SECONDS`). List data can tolerate short staleness; 60s keeps DB load down while keeping lists reasonably fresh.
+- **Single-issue** (`GET /api/issues/:id`): Default TTL **30 seconds** (`CACHE_TTL_ONE_SECONDS`). Shorter so status/assignment updates appear sooner when an issue is updated.
+- TTLs are configurable via environment variables so production can tune for traffic and freshness.
+
+### Cache invalidation
+
+- **On mutations we invalidate related cache** so stale data is not served:
+  - **POST /api/issues** (create): Invalidates all issue list cache keys (`issues:list:*`).
+  - **PATCH /api/issues/:id** (update): Invalidates the list cache and the single-issue cache for that id (both numeric and `publicId`).
+- Invalidation is explicit and intentional: only these mutation paths clear cache; no background TTL-only reliance for consistency.
+
+### Observability
+
+- Console logs indicate **CACHE HIT**, **CACHE MISS**, and **CACHE INVALIDATE** (with key or pattern and count). Use these for performance analysis and debugging.
+- Redis connection and command errors are logged internally; they do not surface as 5xx to the client.
+
+### Performance impact
+
+- **Cold request** (cache miss): Same as before—one DB query; response is then stored in Redis.
+- **Cached request** (cache hit): No DB query; response is read from Redis and returned. Latency is typically much lower (e.g. single-digit ms vs tens of ms for DB).
+- Throughput improves under repeated reads for the same query params or issue id.
+
+### Stale data risks and mitigation
+
+- **Risk**: A client might see list or single-issue data that is slightly out of date (up to one TTL window) if they do not trigger a mutation.
+- **Mitigation**: (1) Mutations (POST, PATCH) invalidate the relevant keys so the next GET sees fresh data. (2) TTL limits how long any stale entry can live. (3) If Redis fails, every request falls back to the database, so correctness is preserved.
+
 ## Environment Variables
 
 Create a `.env` file with:
@@ -121,4 +174,13 @@ Create a `.env` file with:
 DATABASE_URL=postgresql://postgres:password@localhost:5432/mydb
 PORT=5000
 JWT_SECRET=your-secret-key
+REDIS_URL=redis://localhost:6379
 ```
+
+Optional (cache TTL in seconds; defaults in code if unset):
+```
+CACHE_TTL_SECONDS=60
+CACHE_TTL_ONE_SECONDS=30
+```
+
+If `REDIS_URL` is missing or empty, the backend runs without Redis; all reads go to the database and no cache errors are thrown.
