@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
+import { jsonWithCors } from "@/lib/cors";
 
 export async function GET() {
-  return NextResponse.json({ status: "Backend running" });
+  return jsonWithCors({ status: "Backend running" });
 }

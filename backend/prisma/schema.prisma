@@ -7,19 +7,38 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// CivicTrack: Citizen, Officer, Admin (PRD)
 enum Role {
+  citizen
+  officer
   admin
-  user
+}
+
+enum IssueCategory {
+  GARBAGE
+  WATER_SUPPLY
+  ROAD_DAMAGE
+  STREETLIGHT
+  OTHER
+}
+
+enum IssueStatus {
+  REPORTED
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
-  name      String
-  email     String    @unique
-  password  String?   // hashed; optional for backward compatibility
-  role      Role      @default(user)
-  projects  Project[]
-  createdAt DateTime  @default(now())
+  id             Int      @id @default(autoincrement())
+  name           String
+  email          String   @unique
+  password       String?
+  role           Role     @default(citizen)
+  createdAt      DateTime @default(now())
+  projects       Project[]
+  reportedIssues Issue[]  @relation("ReportedBy")
+  assignedIssues Issue[]  @relation("AssignedTo")
 }
 
 model Project {
@@ -43,4 +62,38 @@ model Task {
 
   @@index([projectId])
   @@index([status])
+}
+
+// CivicTrack Issue (PRD: issueId, title, description, category, geoLocation, status, assignedTo, SLA, media, timeline)
+model Issue {
+  id                 Int          @id @default(autoincrement())
+  publicId           String?      @unique // e.g. CT-00001, set after create
+  title              String
+  description        String?
+  category           IssueCategory
+  latitude           Decimal?     @db.Decimal(10, 7)
+  longitude          Decimal?     @db.Decimal(10, 7)
+  status             IssueStatus  @default(REPORTED)
+  reportedById       Int
+  assignedToId       Int?
+  slaDeadline        DateTime?
+  isAnonymous        Boolean      @default(false)
+  upvotes            Int          @default(0)
+  mediaUrls          Json?        // string[] URLs
+  resolutionNotes    String?
+  proofUrls          Json?        // before/after URLs
+  satisfactionRating Int?
+  reopened           Boolean      @default(false)
+  timeline           Json?        // [{ at, status, by }]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  reportedBy User?  @relation("ReportedBy", fields: [reportedById], references: [id], onDelete: Cascade)
+  assignedTo User?  @relation("AssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([category])
+  @@index([reportedById])
+  @@index([assignedToId])
+  @@index([createdAt])
 }
