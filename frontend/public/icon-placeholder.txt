@@ -1,0 +1,18 @@
+PWA Icons Required
+
+To complete PWA setup, add the following icon files to the /public directory:
+
+1. icon-192.png (192x192 pixels)
+   - Used for Android home screen and PWA manifest
+   - Should be a square icon with CivicTrack branding
+
+2. icon-512.png (512x512 pixels)
+   - Used for splash screens and high-DPI displays
+   - Should be a square icon with CivicTrack branding
+
+You can generate these icons using:
+- Online tools: https://realfavicongenerator.net/
+- Design tools: Figma, Adobe Illustrator, etc.
+- Or use a simple colored square with "CT" text as a placeholder
+
+For now, the app will work without these icons, but PWA installation may not show a custom icon.

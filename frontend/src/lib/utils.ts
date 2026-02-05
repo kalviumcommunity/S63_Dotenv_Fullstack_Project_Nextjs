@@ -2,7 +2,15 @@
  * Shared utility functions for CivicTrack UI.
  */
 
+import { type ClassValue, clsx } from "clsx";
 import { CATEGORIES } from "./mockData";
+
+/**
+ * Utility to merge classNames (for Tailwind CSS).
+ */
+export function cn(...inputs: ClassValue[]) {
+  return clsx(inputs);
+}
 
 /**
  * Get human-readable category label from category ID.

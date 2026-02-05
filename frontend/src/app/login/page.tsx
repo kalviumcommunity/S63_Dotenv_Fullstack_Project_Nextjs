@@ -5,39 +5,19 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 
-const signupSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters").max(50, "Name is too long"),
+const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z
-    .string()
-    .min(6, "Password must be at least 6 characters")
-    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-    .regex(/[0-9]/, "Password must contain at least one number"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-type SignupFormData = z.infer<typeof signupSchema>;
+type LoginFormData = z.infer<typeof loginSchema>;
 
-function getPasswordStrength(password: string): { strength: number; label: string; color: string } {
-  if (!password) return { strength: 0, label: "", color: "" };
-  
-  let strength = 0;
-  if (password.length >= 6) strength += 1;
-  if (password.length >= 8) strength += 1;
-  if (/[A-Z]/.test(password)) strength += 1;
-  if (/[a-z]/.test(password)) strength += 1;
-  if (/[0-9]/.test(password)) strength += 1;
-  if (/[^A-Za-z0-9]/.test(password)) strength += 1;
-
-  if (strength <= 2) return { strength, label: "Weak", color: "bg-red-500" };
-  if (strength <= 4) return { strength, label: "Medium", color: "bg-yellow-500" };
-  return { strength, label: "Strong", color: "bg-green-500" };
-}
-
-export default function SignupPage() {
+export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -50,14 +30,12 @@ export default function SignupPage() {
     handleSubmit,
     formState: { errors },
     watch,
-  } = useForm<SignupFormData>({
-    resolver: zodResolver(signupSchema),
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
   });
 
-  const name = watch("name");
   const email = watch("email");
   const password = watch("password");
-  const passwordStrength = getPasswordStrength(password || "");
 
   useEffect(() => {
     setIsMounted(true);
@@ -84,12 +62,12 @@ export default function SignupPage() {
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
-  const onSubmit = async (data: SignupFormData) => {
+  const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     setError("");
 
     try {
-      const res = await fetch("/api/auth/signup", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -98,14 +76,15 @@ export default function SignupPage() {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.message || "Signup failed");
+        setError(json.message || "Login failed");
         return;
       }
 
-      if (json.success) {
-        router.push("/login?registered=true");
+      if (json.success && json.data?.token && json.data?.user) {
+        login(json.data.token, json.data.user);
+        router.push("/dashboard");
       } else {
-        setError("Signup failed. Please try again.");
+        setError("Invalid response from server");
       }
     } catch (err) {
       setError("Network error. Please try again.");
@@ -114,27 +93,34 @@ export default function SignupPage() {
     }
   };
 
-  const getValidationState = (field: string) => {
-    const value = field === "name" ? name : field === "email" ? email : password;
-    if (!value) return "idle";
-    if (errors[field as keyof typeof errors]) return "error";
-    return "valid";
+  const getEmailValidationState = () => {
+    if (!email) return "idle";
+    if (errors.email) return "error";
+    if (email.includes("@") && email.includes(".")) return "valid";
+    return "typing";
+  };
+
+  const getPasswordValidationState = () => {
+    if (!password) return "idle";
+    if (errors.password) return "error";
+    if (password.length >= 6) return "valid";
+    return "typing";
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 p-4">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-cyan-50 via-blue-50 to-teal-50 p-4">
       {/* Animated Water Background */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 opacity-20 blur-3xl animate-pulse" />
-        <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-gradient-to-r from-orange-400 to-red-400 opacity-20 blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
-        <div className="absolute top-1/2 left-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-pink-400 to-purple-400 opacity-10 blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
+        <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-gradient-to-r from-cyan-400 to-blue-400 opacity-20 blur-3xl animate-pulse" />
+        <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-gradient-to-r from-teal-400 to-cyan-400 opacity-20 blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
+        <div className="absolute top-1/2 left-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-blue-300 to-cyan-300 opacity-10 blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
       </div>
 
       {/* Water Wave Animation */}
       <div className="absolute inset-0 overflow-hidden">
         <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
           <path
-            fill="rgba(168, 85, 247, 0.1)"
+            fill="rgba(59, 130, 246, 0.1)"
             d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,154.7C960,171,1056,181,1152,165.3C1248,149,1344,107,1392,85.3L1440,64L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"
             className="animate-water-wave-bottom"
           />
@@ -149,7 +135,7 @@ export default function SignupPage() {
           return (
             <div
               key={i}
-              className="absolute rounded-full bg-purple-400/20"
+              className="absolute rounded-full bg-cyan-400/20"
               style={{
                 left: pos.left,
                 top: pos.top,
@@ -188,7 +174,7 @@ export default function SignupPage() {
           <div
             className="absolute inset-0 rounded-3xl opacity-50"
             style={{
-              background: `radial-gradient(circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(168, 85, 247, 0.3), transparent 50%)`,
+              background: `radial-gradient(circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(59, 130, 246, 0.3), transparent 50%)`,
             }}
           />
 
@@ -199,25 +185,25 @@ export default function SignupPage() {
               className="group mb-8 flex items-center justify-center gap-2 transition-all hover:scale-105"
             >
               <div className="relative">
-                <span className="relative z-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 px-3 py-1.5 text-white text-lg font-bold shadow-lg transition-all group-hover:shadow-purple-500/50">
+                <span className="relative z-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 px-3 py-1.5 text-white text-lg font-bold shadow-lg transition-all group-hover:shadow-cyan-500/50">
                   CT
                 </span>
-                <span className="absolute inset-0 rounded-xl bg-gradient-to-br from-purple-400 to-pink-500 blur-md opacity-50 group-hover:opacity-75 transition-opacity" />
+                <span className="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 blur-md opacity-50 group-hover:opacity-75 transition-opacity" />
               </div>
-              <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-2xl font-bold tracking-tight text-transparent transition-all group-hover:from-purple-700 group-hover:to-pink-700">
+              <span className="bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-2xl font-bold tracking-tight text-transparent transition-all group-hover:from-cyan-700 group-hover:to-teal-700">
                 CivicTrack
               </span>
             </Link>
 
             {/* Header */}
             <div className="mb-8 text-center">
-              <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 shadow-lg">
+              <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 shadow-lg">
                 <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
-              <h1 className="mb-2 text-3xl font-bold text-gray-900">Create Account</h1>
-              <p className="text-gray-600">Join CivicTrack and make a difference</p>
+              <h1 className="mb-2 text-3xl font-bold text-gray-900">Welcome Back</h1>
+              <p className="text-gray-600">Sign in to continue to CivicTrack</p>
             </div>
 
             {/* Form */}
@@ -233,37 +219,6 @@ export default function SignupPage() {
                 </div>
               )}
 
-              {/* Name Input */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700">Full Name</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    {...register("name")}
-                    autoComplete="name"
-                    className={`w-full rounded-xl border-2 bg-white/60 px-4 py-3.5 pl-12 pr-4 text-gray-900 backdrop-blur-sm transition-all duration-300 focus:border-purple-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-purple-500/20 ${
-                      errors.name ? "border-red-500" : getValidationState("name") === "valid" ? "border-green-500" : "border-gray-200"
-                    }`}
-                    placeholder="John Doe"
-                  />
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                    <svg className={`h-5 w-5 transition-colors ${errors.name ? "text-red-500" : getValidationState("name") === "valid" ? "text-green-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                  {getValidationState("name") === "valid" && (
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 animate-fade-in">
-                      <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-                {errors.name && (
-                  <p className="animate-slide-down text-sm text-red-600">{errors.name.message}</p>
-                )}
-              </div>
-
               {/* Email Input */}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-700">Email Address</label>
@@ -272,17 +227,17 @@ export default function SignupPage() {
                     type="email"
                     {...register("email")}
                     autoComplete="email"
-                    className={`w-full rounded-xl border-2 bg-white/60 px-4 py-3.5 pl-12 pr-4 text-gray-900 backdrop-blur-sm transition-all duration-300 focus:border-purple-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-purple-500/20 ${
-                      errors.email ? "border-red-500" : getValidationState("email") === "valid" ? "border-green-500" : "border-gray-200"
+                    className={`w-full rounded-xl border-2 bg-white/60 px-4 py-3.5 pl-12 pr-4 text-gray-900 backdrop-blur-sm transition-all duration-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
+                      errors.email ? "border-red-500" : getEmailValidationState() === "valid" ? "border-green-500" : "border-gray-200"
                     }`}
                     placeholder="you@example.com"
                   />
                   <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                    <svg className={`h-5 w-5 transition-colors ${errors.email ? "text-red-500" : getValidationState("email") === "valid" ? "text-green-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className={`h-5 w-5 transition-colors ${errors.email ? "text-red-500" : getEmailValidationState() === "valid" ? "text-green-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                     </svg>
                   </div>
-                  {getValidationState("email") === "valid" && (
+                  {getEmailValidationState() === "valid" && (
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 animate-fade-in">
                       <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -295,45 +250,32 @@ export default function SignupPage() {
                 )}
               </div>
 
-              {/* Password Input with Strength Meter */}
+              {/* Password Input */}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-700">Password</label>
                 <div className="relative">
                   <input
                     type="password"
                     {...register("password")}
-                    autoComplete="new-password"
-                    className={`w-full rounded-xl border-2 bg-white/60 px-4 py-3.5 pl-12 pr-4 text-gray-900 backdrop-blur-sm transition-all duration-300 focus:border-purple-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-purple-500/20 ${
-                      errors.password ? "border-red-500" : passwordStrength.strength > 0 ? "border-green-500" : "border-gray-200"
+                    autoComplete="current-password"
+                    className={`w-full rounded-xl border-2 bg-white/60 px-4 py-3.5 pl-12 pr-4 text-gray-900 backdrop-blur-sm transition-all duration-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
+                      errors.password ? "border-red-500" : getPasswordValidationState() === "valid" ? "border-green-500" : "border-gray-200"
                     }`}
                     placeholder="••••••••"
                   />
                   <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                    <svg className={`h-5 w-5 transition-colors ${errors.password ? "text-red-500" : passwordStrength.strength > 0 ? "text-green-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className={`h-5 w-5 transition-colors ${errors.password ? "text-red-500" : getPasswordValidationState() === "valid" ? "text-green-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
-                </div>
-                
-                {/* Password Strength Meter */}
-                {password && (
-                  <div className="space-y-1.5 animate-slide-down">
-                    <div className="flex h-2 gap-1 overflow-hidden rounded-full bg-gray-200">
-                      {[...Array(6)].map((_, i) => (
-                        <div
-                          key={i}
-                          className={`h-full flex-1 transition-all duration-500 ${
-                            i < passwordStrength.strength ? passwordStrength.color : "bg-gray-200"
-                          }`}
-                        />
-                      ))}
+                  {getPasswordValidationState() === "valid" && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 animate-fade-in">
+                      <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
                     </div>
-                    <p className={`text-xs font-medium ${passwordStrength.color.replace("bg-", "text-")}`}>
-                      Password strength: {passwordStrength.label}
-                    </p>
-                  </div>
-                )}
-
+                  )}
+                </div>
                 {errors.password && (
                   <p className="animate-slide-down text-sm text-red-600">{errors.password.message}</p>
                 )}
@@ -343,20 +285,20 @@ export default function SignupPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 p-[2px] transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/50 disabled:opacity-50"
+                className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 p-[2px] transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/50 disabled:opacity-50"
               >
-                <div className="relative flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3.5 text-white transition-all duration-300 group-hover:from-purple-700 group-hover:to-pink-700">
+                <div className="relative flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-3.5 text-white transition-all duration-300 group-hover:from-blue-700 group-hover:to-cyan-700">
                   {isLoading ? (
                     <>
                       <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      <span>Creating account...</span>
+                      <span>Signing in...</span>
                     </>
                   ) : (
                     <>
-                      <span>Create Account</span>
+                      <span>Sign In</span>
                       <svg className="h-5 w-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                       </svg>
@@ -365,11 +307,11 @@ export default function SignupPage() {
                 </div>
               </button>
 
-              {/* Login Link */}
+              {/* Sign Up Link */}
               <p className="text-center text-sm text-gray-600">
-                Already have an account?{" "}
-                <Link href="/login" className="font-semibold text-purple-600 transition-colors hover:text-purple-700 hover:underline">
-                  Login
+                Don't have an account?{" "}
+                <Link href="/signup" className="font-semibold text-blue-600 transition-colors hover:text-blue-700 hover:underline">
+                  Sign up
                 </Link>
               </p>
             </form>
