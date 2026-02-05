@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchIssues } from "@/lib/api";
 import { getCategoryLabel, formatSlaDeadline } from "@/lib/utils";
 import type { IssueCardIssue } from "@/components/IssueCard";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 const columns = [
   { id: "ASSIGNED", title: "Assigned", color: "amber" },
@@ -143,9 +144,10 @@ export default function OfficerDashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--foreground)]">Officer Dashboard</h1>
+    <ProtectedRoute>
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--foreground)]">Officer Dashboard</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Manage assigned issues. Update status and upload proof of work.
         </p>
@@ -288,6 +290,7 @@ export default function OfficerDashboardPage() {
           </div>
         )}
       </section>
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 }
