@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
-import { sendError } from "@/lib/responseHandler";
-import { ERROR_CODES } from "@/lib/errorCodes";
+import { sendError } from "@/lib/config/responses";
+import { ERROR_CODES } from "@/lib/config/errorCodes";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 

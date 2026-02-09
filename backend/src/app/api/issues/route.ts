@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { jsonWithCors } from "@/lib/cors";
-import { serializeIssue } from "@/lib/serializeIssue";
+import { prisma } from "@/lib/database";
+import { jsonWithCors } from "@/middleware/cors";
+import { serializeIssue } from "@/utils/serialize";
 import {
   cacheAside,
   invalidateIssuesListCache,
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
             where,
             include: {
               reportedBy: { select: { id: true, name: true } },
-              assignedTo: { select: { id: true, name: true } },
+              assignedTo: { select: { id: true, name: true, email: true, role: true } },
             },
             orderBy: { createdAt: "desc" },
             take: limit,

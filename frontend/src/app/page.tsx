@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import StatCard from "@/components/StatCard";
-import StatusLegend from "@/components/StatusLegend";
-import Toast from "@/components/Toast";
-import CountUp from "@/components/CountUp";
+import StatCard from "@/components/features/dashboard/StatCard";
+import StatusLegend from "@/components/features/dashboard/StatusLegend";
+import Toast from "@/components/common/feedback/Toast";
+import CountUp from "@/components/features/dashboard/CountUp";
 import { fetchIssues } from "@/lib/api";
-import type { IssueCardIssue } from "@/components/IssueCard";
+import type { IssueCardIssue } from "@/components/features/issues/IssueCard";
 
 const AI_CARDS = [
   { id: "vision", icon: "🔍", title: "Computer Vision", desc: "Detect potholes, garbage, and damage from photos. Auto-categorize and suggest location.", sample: "Detected: Pothole (0.92). Suggested category: ROAD_DAMAGE. Location confidence: high.", tryLink: "/report" },
@@ -61,10 +61,23 @@ export default function LandingPage() {
     let cancelled = false;
     async function loadIssues() {
       try {
-        const res = (await fetchIssues({ limit: 500 })) as
+        // Add timeout to prevent infinite loading
+        const timeoutPromise = new Promise<null>((resolve) => 
+          setTimeout(() => resolve(null), 10000)
+        );
+        
+        const fetchPromise = fetchIssues({ limit: 500 }) as Promise<
           | { data?: { issues?: IssueCardIssue[]; total?: number } }
           | { issues?: IssueCardIssue[] }
-          | IssueCardIssue[];
+          | IssueCardIssue[]
+        >;
+        
+        const res = await Promise.race([fetchPromise, timeoutPromise]);
+        
+        if (!res || cancelled) {
+          if (!cancelled) setIssues([]);
+          return;
+        }
 
         let list: IssueCardIssue[] = [];
         if (Array.isArray(res)) {
@@ -81,8 +94,6 @@ export default function LandingPage() {
         if (!cancelled) {
           setIssues([]);
         }
-      } finally {
-        // no-op for now; could add loading UI later
       }
     }
     loadIssues();

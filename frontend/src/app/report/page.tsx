@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
-import { CATEGORIES } from "@/lib/mockData";
+import toast from "react-hot-toast";
+import { CATEGORIES } from "@/constants/mockData";
 import { createIssue } from "@/lib/api";
-import { searchLocation, reverseGeocode, type GeocodeResult } from "@/lib/geocode";
-import AiIssueVisionOverlay from "@/components/AiIssueVisionOverlay";
+import { searchLocation, reverseGeocode, type GeocodeResult } from "@/lib/services/geocoding";
+import AiIssueVisionOverlay from "@/components/features/issues/AiIssueVisionOverlay";
 
 const MAX_PHOTOS = 3;
 const MAX_PHOTO_SIZE_MB = 5;
@@ -323,20 +324,27 @@ export default function ReportPage() {
     setSuccessId(null);
     const t = title.trim();
     if (!t) {
-      setError("Please enter a title.");
+      const errorMessage = "Please enter a title.";
+      setError(errorMessage);
+      toast.error(errorMessage);
       return;
     }
     const lat = latitude.trim() ? Number(latitude) : NaN;
     const lng = longitude.trim() ? Number(longitude) : NaN;
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      setError("Location is required. Enter an address and fetch coordinates, use your location, or select a location on the map.");
+      const errorMessage = "Location is required. Enter an address and fetch coordinates, use your location, or select a location on the map.";
+      setError(errorMessage);
+      toast.error(errorMessage);
       return;
     }
     if (photoFiles.length === 0) {
-      setError("At least one photo is required to submit the report.");
+      const errorMessage = "At least one photo is required to submit the report.";
+      setError(errorMessage);
+      toast.error(errorMessage);
       return;
     }
     setSubmitting(true);
+    const loadingToast = toast.loading("Submitting your report...");
     try {
       const body: Parameters<typeof createIssue>[0] = {
         title: t,
@@ -348,6 +356,8 @@ export default function ReportPage() {
       };
       const data = await createIssue(body);
       const id = data?.data?.id ?? data?.id;
+      toast.dismiss(loadingToast);
+      toast.success("Issue reported successfully!");
       setSuccessId(id != null ? String(id) : null);
       setTitle("");
       setDescription("");
@@ -360,7 +370,10 @@ export default function ReportPage() {
         return [];
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit issue.");
+      toast.dismiss(loadingToast);
+      const errorMessage = err instanceof Error ? err.message : "Failed to submit issue.";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }

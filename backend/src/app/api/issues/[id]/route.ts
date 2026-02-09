@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { jsonWithCors } from "@/lib/cors";
-import { serializeIssue } from "@/lib/serializeIssue";
+import { prisma } from "@/lib/database";
+import { jsonWithCors } from "@/middleware/cors";
+import { serializeIssue } from "@/utils/serialize";
 import {
   cacheGet,
   cacheSet,
@@ -36,7 +36,7 @@ export async function GET(_req: NextRequest, context: ParamsPromise) {
       where: isNumeric ? { id: Number(id) } : { publicId: id },
       include: {
         reportedBy: { select: { id: true, name: true } },
-        assignedTo: { select: { id: true, name: true } },
+        assignedTo: { select: { id: true, name: true, email: true, role: true } },
       },
     });
 
@@ -105,7 +105,7 @@ export async function PATCH(req: NextRequest, context: ParamsPromise) {
       data: updates,
       include: {
         reportedBy: { select: { id: true, name: true } },
-        assignedTo: { select: { id: true, name: true } },
+        assignedTo: { select: { id: true, name: true, email: true, role: true } },
       },
     });
 

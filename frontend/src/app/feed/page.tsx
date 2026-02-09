@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import IssueCard, { type IssueCardIssue } from "@/components/IssueCard";
-import { CATEGORIES, STATUSES } from "@/lib/mockData";
-import { fetchIssues } from "@/lib/api";
+import IssueCard, { type IssueCardIssue } from "@/components/features/issues/IssueCard";
+import { CATEGORIES, STATUSES } from "@/constants/mockData";
+import { fetchIssues, fetchIssueProgress } from "@/lib/api";
+import SkeletonLoader from "@/components/shared/animations/SkeletonLoader";
 
 export default function FeedPage() {
   const [category, setCategory] = useState<string>("");
@@ -19,15 +20,65 @@ export default function FeedPage() {
       try {
         setLoading(true);
         setError(null);
-        const res = (await fetchIssues({ limit: 200 })) as
+        
+        // Add timeout to prevent infinite loading
+        const timeoutPromise = new Promise<null>((resolve) => 
+          setTimeout(() => resolve(null), 10000)
+        );
+        
+        const fetchPromise = fetchIssues({ limit: 200 }) as Promise<
           | { data?: { issues?: IssueCardIssue[]; total?: number } }
           | { issues?: IssueCardIssue[] }
-          | IssueCardIssue[];
+          | IssueCardIssue[]
+        >;
+        
+        const res = await Promise.race([fetchPromise, timeoutPromise]);
+        
+        if (!res || cancelled) {
+          if (!cancelled) {
+            setLoading(false);
+            setIssues([]);
+          }
+          return;
+        }
+        
         let list: IssueCardIssue[] = [];
         if (Array.isArray(res)) list = res;
         else if ("data" in res && Array.isArray(res.data?.issues)) list = res.data!.issues as IssueCardIssue[];
         else if ("issues" in res && Array.isArray(res.issues)) list = res.issues as IssueCardIssue[];
-        if (!cancelled) setIssues(list);
+
+        // Fetch progress data for all issues in parallel (batch fetch for efficiency)
+        if (!cancelled && list.length > 0) {
+          // Fetch progress for all issues in parallel with timeout protection
+          const progressPromises = list.map(async (issue) => {
+            try {
+              // Add timeout to prevent hanging
+              const progressData = await Promise.race([
+                fetchIssueProgress(String(issue.id)),
+                new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+              ]);
+              return {
+                ...issue,
+                progressPercentage: progressData?.progressPercentage ?? 0,
+                assignedTo: progressData?.assignedTo ?? null,
+              };
+            } catch (err) {
+              // If progress fetch fails, return issue without progress
+              return {
+                ...issue,
+                progressPercentage: 0,
+                assignedTo: null,
+              };
+            }
+          });
+
+          const issuesWithProgress = await Promise.all(progressPromises);
+          if (!cancelled) {
+            setIssues(issuesWithProgress);
+          }
+        } else if (!cancelled) {
+          setIssues(list);
+        }
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "Failed to load issues.");
@@ -38,8 +89,17 @@ export default function FeedPage() {
       }
     }
     load();
+
+    // Auto-refresh every 30 seconds for real-time updates
+    const interval = setInterval(() => {
+      if (!cancelled) {
+        load();
+      }
+    }, 30000);
+
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, []);
 
@@ -112,8 +172,12 @@ export default function FeedPage() {
         </div>
       )}
       {loading && !filtered.length ? (
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-12 text-center text-[var(--muted)]">
-          Loading issues…
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="rounded-xl border border-gray-200 bg-white p-4">
+              <SkeletonLoader height="200px" rounded="lg" />
+            </div>
+          ))}
         </div>
       ) : (
         <>

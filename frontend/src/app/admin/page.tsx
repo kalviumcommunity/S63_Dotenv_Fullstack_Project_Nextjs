@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import ProtectedRoute from "@/components/common/layout/ProtectedRoute";
 
 export default function AdminPage() {
   const [data, setData] = useState<any | null>(null);
@@ -36,12 +37,21 @@ export default function AdminPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--foreground)]">Admin</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Equity and oversight metrics computed from live issues (SLA and open-age signals) across wards.
-        </p>
+    <ProtectedRoute requireRole="admin">
+      <div className="space-y-6">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--foreground)]">Admin Dashboard</h1>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Equity and oversight metrics computed from live issues (SLA and open-age signals) across wards.
+          </p>
+        </div>
+        <Link
+          href="/admin/issues"
+          className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl"
+        >
+          Assign Issues
+        </Link>
       </div>
 
       {error && (
@@ -140,6 +150,7 @@ export default function AdminPage() {
           Back to City Pulse
         </Link>
       </p>
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 }
