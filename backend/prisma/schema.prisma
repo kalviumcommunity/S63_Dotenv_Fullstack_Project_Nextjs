@@ -39,6 +39,7 @@ model User {
   projects       Project[]
   reportedIssues Issue[]  @relation("ReportedBy")
   assignedIssues Issue[]  @relation("AssignedTo")
+  progressUpdates ProgressUpdate[]
 }
 
 model Project {
@@ -76,7 +77,8 @@ model Issue {
   status             IssueStatus  @default(REPORTED)
   reportedById       Int
   assignedToId       Int?
-  slaDeadline        DateTime?
+  slaDeadline        DateTime?    // Expected completion date
+  progressPercentage Int          @default(0) // 0-100
   isAnonymous        Boolean      @default(false)
   upvotes            Int          @default(0)
   mediaUrls          Json?        // string[] URLs
@@ -90,10 +92,28 @@ model Issue {
 
   reportedBy User?  @relation("ReportedBy", fields: [reportedById], references: [id], onDelete: Cascade)
   assignedTo User?  @relation("AssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  progressUpdates    ProgressUpdate[]
 
   @@index([status])
   @@index([category])
   @@index([reportedById])
   @@index([assignedToId])
   @@index([createdAt])
+}
+
+// Daily progress updates by assigned workers
+model ProgressUpdate {
+  id          Int      @id @default(autoincrement())
+  issueId     Int
+  percentage  Int      // Progress percentage (0-100)
+  notes       String?  // What work was done
+  updatedById Int      // Who updated the progress
+  createdAt   DateTime @default(now())
+
+  issue     Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  updatedBy User  @relation(fields: [updatedById], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+  @@index([createdAt])
+  @@index([updatedById])
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 
@@ -66,6 +67,8 @@ export default function LoginPage() {
     setIsLoading(true);
     setError("");
 
+    const loadingToast = toast.loading("Signing you in...");
+
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -76,18 +79,31 @@ export default function LoginPage() {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.message || "Login failed");
+        toast.dismiss(loadingToast);
+        const errorMessage = json.message || "Login failed";
+        setError(errorMessage);
+        toast.error(errorMessage);
         return;
       }
 
       if (json.success && json.data?.token && json.data?.user) {
+        toast.dismiss(loadingToast);
+        toast.success("Welcome back! Redirecting...");
         login(json.data.token, json.data.user);
-        router.push("/dashboard");
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 500);
       } else {
-        setError("Invalid response from server");
+        toast.dismiss(loadingToast);
+        const errorMessage = "Invalid response from server";
+        setError(errorMessage);
+        toast.error(errorMessage);
       }
     } catch (err) {
-      setError("Network error. Please try again.");
+      toast.dismiss(loadingToast);
+      const errorMessage = "Network error. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

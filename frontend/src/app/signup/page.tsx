@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import toast from "react-hot-toast";
 import Link from "next/link";
 
 const signupSchema = z.object({
@@ -88,6 +89,8 @@ export default function SignupPage() {
     setIsLoading(true);
     setError("");
 
+    const loadingToast = toast.loading("Creating your account...");
+
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
@@ -98,17 +101,30 @@ export default function SignupPage() {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.message || "Signup failed");
+        toast.dismiss(loadingToast);
+        const errorMessage = json.message || "Signup failed";
+        setError(errorMessage);
+        toast.error(errorMessage);
         return;
       }
 
       if (json.success) {
-        router.push("/login?registered=true");
+        toast.dismiss(loadingToast);
+        toast.success("Account created! Redirecting to login...");
+        setTimeout(() => {
+          router.push("/login?registered=true");
+        }, 1000);
       } else {
-        setError("Signup failed. Please try again.");
+        toast.dismiss(loadingToast);
+        const errorMessage = "Signup failed. Please try again.";
+        setError(errorMessage);
+        toast.error(errorMessage);
       }
     } catch (err) {
-      setError("Network error. Please try again.");
+      toast.dismiss(loadingToast);
+      const errorMessage = "Network error. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Turbopack configuration (Next.js 16+)
+  turbopack: {},
+  
   async headers() {
     return [
       {

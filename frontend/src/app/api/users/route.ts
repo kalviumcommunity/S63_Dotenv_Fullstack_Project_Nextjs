@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
-import { sendSuccess, sendError } from "@/lib/responseHandler";
-import { ERROR_CODES } from "@/lib/errorCodes";
-import { verifyAuthToken } from "@/lib/auth";
-import { userSchema } from "@/lib/schemas/userSchema";
+import { sendSuccess, sendError } from "@/lib/config/responses";
+import { ERROR_CODES } from "@/lib/config/errorCodes";
+import { verifyAuthToken } from "@/lib/services/auth";
+import { userSchema } from "@/types/schemas/userSchema";
 import { ZodError } from "zod";
-import { handleError } from "@/lib/errorHandler";
+import { handleError } from "@/lib/config/errorHandler";
 
 /**
  * GET /api/users (Protected Route)
@@ -12,7 +12,7 @@ import { handleError } from "@/lib/errorHandler";
 export async function GET(req: NextRequest) {
   try {
     const authHeader = req.headers.get("authorization");
-    verifyAuthToken(authHeader);
+    await verifyAuthToken(authHeader);
 
     const users = [
       { id: 1, name: "Alice" },

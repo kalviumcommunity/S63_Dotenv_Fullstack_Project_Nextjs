@@ -2,12 +2,12 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import IndiaMap from "@/components/IndiaMap";
-import LocationSearch from "@/components/LocationSearch";
-import { CATEGORIES, STATUSES } from "@/lib/mockData";
-import { reverseGeocode } from "@/lib/geocode";
+import IndiaMap from "@/components/features/map/IndiaMap";
+import LocationSearch from "@/components/features/map/LocationSearch";
+import { CATEGORIES, STATUSES } from "@/constants/mockData";
+import { reverseGeocode } from "@/lib/services/geocoding";
 import { fetchIssues } from "@/lib/api";
-import type { IssueCardIssue } from "@/components/IssueCard";
+import type { IssueCardIssue } from "@/components/features/issues/IssueCard";
 
 export default function MapPage() {
   const searchParams = useSearchParams();
@@ -33,27 +33,43 @@ export default function MapPage() {
       try {
         setLoading(true);
         setError(null);
-        const [issuesRes, fairnessRes] = await Promise.all([
-          fetchIssues({ limit: 500 }) as Promise<
-            { data?: { issues?: IssueCardIssue[]; total?: number } } | { issues?: IssueCardIssue[] } | IssueCardIssue[]
-          >,
-          fetch("/api/ai/fairness").then((r) => r.json()),
+        
+        // Add timeout to prevent infinite loading
+        const timeoutPromise = new Promise<null>((resolve) => 
+          setTimeout(() => resolve(null), 10000)
+        );
+        
+        const fetchIssuesPromise = fetchIssues({ limit: 500 }) as Promise<
+          { data?: { issues?: IssueCardIssue[]; total?: number } } | { issues?: IssueCardIssue[] } | IssueCardIssue[]
+        >;
+        
+        const fetchFairnessPromise = fetch("/api/ai/fairness")
+          .then((r) => r.json())
+          .catch(() => null);
+        
+        const [issuesRes, fairnessRes] = await Promise.race([
+          Promise.all([fetchIssuesPromise, fetchFairnessPromise]),
+          timeoutPromise.then(() => [null, null] as const),
         ]);
+
+        if (cancelled) return;
 
         // Issues
         let list: IssueCardIssue[] = [];
-        if (Array.isArray(issuesRes)) list = issuesRes;
-        else if ("data" in issuesRes && Array.isArray(issuesRes.data?.issues))
-          list = issuesRes.data!.issues as IssueCardIssue[];
-        else if ("issues" in issuesRes && Array.isArray(issuesRes.issues))
-          list = issuesRes.issues as IssueCardIssue[];
+        if (issuesRes) {
+          if (Array.isArray(issuesRes)) list = issuesRes;
+          else if ("data" in issuesRes && Array.isArray(issuesRes.data?.issues))
+            list = issuesRes.data!.issues as IssueCardIssue[];
+          else if ("issues" in issuesRes && Array.isArray(issuesRes.issues))
+            list = issuesRes.issues as IssueCardIssue[];
+        }
 
         // Fairness
-        const fairnessData = (fairnessRes as any)?.data || fairnessRes;
+        const fairnessData = fairnessRes ? ((fairnessRes as any)?.data || fairnessRes) : null;
 
         if (!cancelled) {
           setIssues(list);
-          setFairness(fairnessData || null);
+          setFairness(fairnessData);
         }
       } catch (e) {
         if (!cancelled) {

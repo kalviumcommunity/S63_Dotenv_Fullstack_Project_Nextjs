@@ -1,6 +1,6 @@
-import { sendSuccess, sendError } from "@/lib/responseHandler";
-import { ERROR_CODES } from "@/lib/errorCodes";
-import { handleError } from "@/lib/errorHandler";
+import { sendSuccess, sendError } from "@/lib/config/responses";
+import { ERROR_CODES } from "@/lib/config/errorCodes";
+import { handleError } from "@/lib/config/errorHandler";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "http://localhost:5000";
 

@@ -3,7 +3,7 @@
  */
 
 import { type ClassValue, clsx } from "clsx";
-import { CATEGORIES } from "./mockData";
+import { CATEGORIES } from "@/constants/mockData";
 
 /**
  * Utility to merge classNames (for Tailwind CSS).
