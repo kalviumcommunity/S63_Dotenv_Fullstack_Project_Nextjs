@@ -101,7 +101,7 @@ export default function ConfirmationModal({
             animate="animate"
             exit="exit"
             variants={safeVariants.fadeIn}
-            className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[9998] bg-black/50 dark:bg-black/70 backdrop-blur-sm"
             onClick={handleBackdropClick}
             aria-hidden="true"
           />

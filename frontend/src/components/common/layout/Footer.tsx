@@ -31,14 +31,14 @@ export default function Footer() {
   return (
     <footer
       ref={footerRef}
-      className="relative mt-auto overflow-hidden bg-gradient-to-b from-gray-900 via-gray-950 to-black border-t border-cyan-500/20"
+      className="relative mt-auto overflow-hidden bg-[var(--card)] border-t border-[var(--border)]"
     >
       {/* Animated Grid Background */}
-      <div className="absolute inset-0 opacity-10">
+      <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]">
         <div className="absolute inset-0" style={{
           backgroundImage: `
-            linear-gradient(rgba(6, 182, 212, 0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(6, 182, 212, 0.1) 1px, transparent 1px)
+            linear-gradient(var(--primary) 1px, transparent 1px),
+            linear-gradient(90deg, var(--primary) 1px, transparent 1px)
           `,
           backgroundSize: '50px 50px',
           animation: 'grid-move 20s linear infinite',
@@ -84,7 +84,7 @@ export default function Footer() {
       {isMounted && [...Array(20)].map((_, i) => (
         <motion.div
           key={i}
-          className="absolute rounded-full bg-cyan-500/20"
+          className="absolute rounded-full bg-[var(--primary)]/10 dark:bg-[var(--primary)]/20"
           style={{
             left: `${Math.random() * 100}%`,
             bottom: `${Math.random() * 100}%`,
@@ -106,9 +106,9 @@ export default function Footer() {
         />
       ))}
 
-      <div className="relative z-10 mx-auto max-w-7xl px-4 py-16">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
         {/* Top Content Section */}
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-4 mb-16">
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4 mb-12 sm:mb-16">
           {/* Brand Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -123,16 +123,15 @@ export default function Footer() {
                 whileHover={{ scale: 1.1, rotate: 5 }}
                 transition={{ type: "spring", stiffness: 400 }}
               >
-                <span className="relative z-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 px-3 py-1.5 text-white text-sm font-bold shadow-lg shadow-cyan-500/50">
+                <span className="relative z-10 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-white text-sm font-bold shadow-sm">
                   CT
                 </span>
-                <span className="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 blur-md opacity-70 animate-pulse" />
               </motion.div>
-              <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-xl font-bold text-transparent bg-[length:200%_100%] animate-gradient-shift">
+              <span className="text-[var(--foreground)] text-lg sm:text-xl font-bold">
                 CivicTrack
               </span>
             </div>
-            <p className="text-sm text-gray-400 leading-relaxed">
+            <p className="text-sm text-[var(--muted-foreground)] leading-relaxed">
               Transparent urban grievance redressal platform. Report issues, track resolution, hold authorities accountable.
             </p>
           </motion.div>
@@ -144,8 +143,8 @@ export default function Footer() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
           >
-            <h3 className="mb-4 font-semibold text-white">Quick Links</h3>
-            <ul className="space-y-3">
+            <h3 className="mb-4 text-sm font-semibold text-[var(--foreground)]">Quick Links</h3>
+            <ul className="space-y-2.5">
               {[
                 { href: "/feed", label: "Issue Feed" },
                 { href: "/map", label: "Map View" },
@@ -161,10 +160,9 @@ export default function Footer() {
                 >
                   <Link
                     href={link.href}
-                    className="group text-sm text-gray-400 transition-all duration-300 hover:text-cyan-400 relative inline-block"
+                    className="group text-sm text-[var(--muted-foreground)] transition-all duration-200 hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 rounded-md px-1"
                   >
-                    <span className="relative z-10">{link.label}</span>
-                    <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-cyan-400 to-blue-400 transition-all duration-300 group-hover:w-full" />
+                    {link.label}
                   </Link>
                 </motion.li>
               ))}
@@ -178,18 +176,18 @@ export default function Footer() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <h3 className="mb-4 font-semibold text-white">Resources</h3>
-            <ul className="space-y-3">
+            <h3 className="mb-4 text-sm font-semibold text-[var(--foreground)]">Resources</h3>
+            <ul className="space-y-2.5">
               {isAuthenticated && user?.role === "officer" && (
                 <li>
-                  <Link href="/officer" className="text-sm text-gray-400 transition-colors hover:text-cyan-400">
+                  <Link href="/officer" className="text-sm text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 rounded-md px-1">
                     Officer Portal
                   </Link>
                 </li>
               )}
               {isAuthenticated && user?.role === "admin" && (
                 <li>
-                  <Link href="/admin" className="text-sm text-gray-400 transition-colors hover:text-cyan-400">
+                  <Link href="/admin" className="text-sm text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 rounded-md px-1">
                     Admin Panel
                   </Link>
                 </li>
@@ -199,7 +197,7 @@ export default function Footer() {
                 { href: "#", label: "Documentation" },
               ].map((link) => (
                 <li key={link.label}>
-                  <a href={link.href} className="text-sm text-gray-400 transition-colors hover:text-cyan-400">
+                  <a href={link.href} className="text-sm text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 rounded-md px-1">
                     {link.label}
                   </a>
                 </li>
@@ -214,25 +212,25 @@ export default function Footer() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            <h3 className="mb-4 font-semibold text-white">Contact</h3>
-            <ul className="space-y-3">
+            <h3 className="mb-4 text-sm font-semibold text-[var(--foreground)]">Contact</h3>
+            <ul className="space-y-2.5">
               <li>
-                <a href="mailto:support@civictrack.com" className="text-sm text-gray-400 transition-colors hover:text-cyan-400 flex items-center gap-2">
+                <a href="mailto:support@civictrack.com" className="text-sm text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)] flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 rounded-md px-1">
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
-                  support@civictrack.com
+                  <span className="break-all">support@civictrack.com</span>
                 </a>
               </li>
               <li>
-                <a href="tel:+1234567890" className="text-sm text-gray-400 transition-colors hover:text-cyan-400 flex items-center gap-2">
+                <a href="tel:+1234567890" className="text-sm text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)] flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 rounded-md px-1">
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                   </svg>
                   +1 (234) 567-890
                 </a>
               </li>
-              <li className="flex gap-4 pt-4">
+              <li className="flex gap-3 sm:gap-4 pt-4">
                 {[
                   { name: "Facebook", path: "M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" },
                   { name: "Twitter", path: "M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z" },
@@ -243,13 +241,14 @@ export default function Footer() {
                   <motion.a
                     key={social.name}
                     href="#"
-                    className="text-gray-500 transition-all duration-300 hover:text-cyan-400 hover:scale-110"
+                    className="text-[var(--muted-foreground)] transition-all duration-200 hover:text-[var(--primary)] hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 rounded-md p-1"
                     whileHover={{ scale: 1.2, rotate: 5 }}
                     whileTap={{ scale: 0.9 }}
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.4, delay: 0.4 + i * 0.1 }}
+                    aria-label={social.name}
                   >
                     <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
                       <path d={social.path} />
@@ -267,13 +266,13 @@ export default function Footer() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="mt-16 border-t border-cyan-500/20 pt-8"
+          className="mt-12 sm:mt-16 border-t border-[var(--border)] pt-6 sm:pt-8"
         >
-          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-            <p className="text-sm text-gray-500">
+          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] text-center sm:text-left">
               © {new Date().getFullYear()} CivicTrack. All rights reserved.
             </p>
-            <div className="flex gap-6">
+            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
               {[
                 { href: "#", label: "Privacy Policy" },
                 { href: "#", label: "Terms of Service" },
@@ -282,10 +281,9 @@ export default function Footer() {
                 <Link
                   key={link.label}
                   href={link.href}
-                  className="text-sm text-gray-500 transition-colors hover:text-cyan-400 relative group"
+                  className="text-xs sm:text-sm text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 rounded-md px-1"
                 >
                   {link.label}
-                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-cyan-400 transition-all duration-300 group-hover:w-full" />
                 </Link>
               ))}
             </div>
@@ -295,31 +293,20 @@ export default function Footer() {
 
       {/* Floating Contact Button */}
       <motion.div
-        className="fixed bottom-8 right-8 z-50"
+        className="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 z-50"
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 1, type: "spring", stiffness: 200 }}
       >
         <motion.a
           href="tel:+1234567890"
-          className="group relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 shadow-2xl shadow-cyan-500/50 transition-all duration-300 hover:shadow-cyan-400/70"
-          whileHover={{ scale: 1.1, rotate: 5 }}
-          whileTap={{ scale: 0.9 }}
-          animate={{
-            boxShadow: [
-              "0 0 20px rgba(6, 182, 212, 0.5)",
-              "0 0 40px rgba(6, 182, 212, 0.8)",
-              "0 0 20px rgba(6, 182, 212, 0.5)",
-            ],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+          className="group relative flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-[var(--primary)] shadow-lg transition-all duration-300 hover:shadow-xl hover:bg-[var(--primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          aria-label="Contact us"
         >
           <svg
-            className="h-7 w-7 text-white transition-transform group-hover:scale-110"
+            className="h-6 w-6 sm:h-7 sm:w-7 text-white transition-transform group-hover:scale-110"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -331,18 +318,6 @@ export default function Footer() {
               d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
             />
           </svg>
-          <motion.div
-            className="absolute inset-0 rounded-full bg-cyan-400"
-            animate={{
-              scale: [1, 1.5, 1],
-              opacity: [0.5, 0, 0.5],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeOut",
-            }}
-          />
         </motion.a>
       </motion.div>
     </footer>

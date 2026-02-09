@@ -9,11 +9,11 @@ const Badge = forwardRef<HTMLDivElement, BadgeProps>(
   ({ className, variant = "default", ...props }, ref) => {
     const variants = {
       default: "bg-[var(--primary)] text-white",
-      secondary: "bg-[var(--secondary)] text-[var(--secondary-foreground)]",
-      success: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-      warning: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-      danger: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-      outline: "border border-[var(--border)] text-[var(--foreground)]",
+      secondary: "bg-[var(--secondary)] text-[var(--secondary-foreground)] border border-[var(--border)]",
+      success: "bg-[var(--success-bg)] text-[var(--success)]",
+      warning: "bg-[var(--warning-bg)] text-[var(--warning)]",
+      danger: "bg-[var(--danger-bg)] text-[var(--danger)]",
+      outline: "border border-[var(--border)] bg-transparent text-[var(--foreground)]",
     };
 
     return (
