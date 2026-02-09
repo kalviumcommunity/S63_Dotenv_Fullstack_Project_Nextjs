@@ -35,8 +35,12 @@ export function Providers({ children }: { children: ReactNode }) {
                 padding: "0.75rem 1rem",
                 fontSize: "0.875rem",
                 fontWeight: "500",
-                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                boxShadow: "var(--shadow-md)",
+                background: "var(--card)",
+                color: "var(--foreground)",
+                border: "1px solid var(--border)",
               },
+              className: "toast-theme-aware",
             }}
           />
         </AuthProvider>

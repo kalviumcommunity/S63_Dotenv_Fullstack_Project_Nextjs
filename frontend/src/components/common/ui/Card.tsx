@@ -18,7 +18,7 @@ Card.displayName = "Card";
 export interface CardHeaderProps extends HTMLAttributes<HTMLDivElement> {}
 
 const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(({ className, ...props }, ref) => {
-  return <div ref={ref} className={cn("flex flex-col space-y-1.5 p-6", className)} {...props} />;
+  return <div ref={ref} className={cn("flex flex-col space-y-1.5 p-4 sm:p-6", className)} {...props} />;
 });
 
 CardHeader.displayName = "CardHeader";
@@ -34,7 +34,7 @@ CardTitle.displayName = "CardTitle";
 export interface CardContentProps extends HTMLAttributes<HTMLDivElement> {}
 
 const CardContent = forwardRef<HTMLDivElement, CardContentProps>(({ className, ...props }, ref) => {
-  return <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />;
+  return <div ref={ref} className={cn("p-4 sm:p-6 pt-0", className)} {...props} />;
 });
 
 CardContent.displayName = "CardContent";
@@ -42,7 +42,7 @@ CardContent.displayName = "CardContent";
 export interface CardFooterProps extends HTMLAttributes<HTMLDivElement> {}
 
 const CardFooter = forwardRef<HTMLDivElement, CardFooterProps>(({ className, ...props }, ref) => {
-  return <div ref={ref} className={cn("flex items-center p-6 pt-0", className)} {...props} />;
+  return <div ref={ref} className={cn("flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-0 p-4 sm:p-6 pt-0", className)} {...props} />;
 });
 
 CardFooter.displayName = "CardFooter";

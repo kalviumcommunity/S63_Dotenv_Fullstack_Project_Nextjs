@@ -31,6 +31,20 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setResolvedTheme(effectiveTheme);
     root.classList.remove("light", "dark");
     root.classList.add(effectiveTheme);
+    
+    // Listen for system theme changes
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = () => {
+      if (theme === "system") {
+        const newSystemTheme = mediaQuery.matches ? "dark" : "light";
+        setResolvedTheme(newSystemTheme);
+        root.classList.remove("light", "dark");
+        root.classList.add(newSystemTheme);
+      }
+    };
+    
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
   }, [theme]);
 
   const setTheme = (newTheme: Theme) => {
