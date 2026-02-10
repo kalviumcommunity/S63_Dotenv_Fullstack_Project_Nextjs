@@ -5,7 +5,7 @@ import Link from "next/link";
 import Button from "@/components/common/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/common/ui/Card";
 
-export default function Error({
+export default function AdminError({
   error,
   reset,
 }: {
@@ -13,11 +13,11 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("Application error:", error);
+    console.error("Admin dashboard error:", error);
   }, [error]);
 
   return (
-    <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center p-4">
+    <div className="flex min-h-[40vh] items-center justify-center p-4">
       <Card className="w-full max-w-md border-[var(--border)] bg-[var(--card)]">
         <CardHeader>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--danger-bg)]">
@@ -36,34 +36,20 @@ export default function Error({
               />
             </svg>
           </div>
-          <CardTitle className="text-center text-2xl font-bold text-[var(--foreground)]">
-            Something went wrong
+          <CardTitle className="text-center text-xl font-bold text-[var(--foreground)]">
+            Unable to load admin dashboard
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 text-center">
-          <div className="space-y-2">
-            <p className="text-base text-[var(--foreground)]">
-              We encountered an unexpected issue while loading this page.
-            </p>
-            <p className="text-sm text-[var(--muted-foreground)]">
-              Don&apos;t worry, your data is safe. You can try again or return to the home page.
-            </p>
-          </div>
-
-          {error.digest && (
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-3">
-              <p className="text-xs font-mono text-[var(--muted-foreground)]">
-                Error ID: {error.digest}
-              </p>
-            </div>
-          )}
-
+          <p className="text-sm text-[var(--muted-foreground)]">
+            We couldn&apos;t load the admin dashboard. Please check your permissions and try again.
+          </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
             <Button
               variant="primary"
               onClick={reset}
               className="w-full sm:w-auto"
-              aria-label="Retry loading the page"
+              aria-label="Retry loading admin dashboard"
             >
               Try Again
             </Button>
