@@ -50,29 +50,8 @@ export default function ProgressUpdateForm({
     const loadingToast = toast.loading("Updating progress...");
 
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        throw new Error("Not authenticated");
-      }
-
-      const response = await fetch(`/api/issues/${issueId}/progress`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        toast.dismiss(loadingToast);
-        const errorMessage = result.message || "Failed to update progress";
-        setError(errorMessage);
-        toast.error(errorMessage);
-        throw new Error(errorMessage);
-      }
+      const { apiPost } = await import("@/lib/api/client");
+      const result = await apiPost(`/api/issues/${issueId}/progress`, data);
 
       toast.dismiss(loadingToast);
       toast.success(`Progress updated to ${data.percentage}%`);

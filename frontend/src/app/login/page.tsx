@@ -70,10 +70,13 @@ export default function LoginPage() {
     const loadingToast = toast.loading("Signing you in...");
 
     try {
-      const res = await fetch("/api/auth/login", {
+      // Call backend directly to receive refresh token cookie
+      const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") || "http://localhost:5000";
+      const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
+        credentials: "include", // Include cookies
       });
 
       const json = await res.json();
@@ -86,10 +89,10 @@ export default function LoginPage() {
         return;
       }
 
-      if (json.success && json.data?.token && json.data?.user) {
+      if (json.success && json.data?.accessToken && json.data?.user) {
         toast.dismiss(loadingToast);
         toast.success("Welcome back! Redirecting...");
-        login(json.data.token, json.data.user);
+        login(json.data.accessToken, json.data.user);
         setTimeout(() => {
           router.push("/dashboard");
         }, 500);
