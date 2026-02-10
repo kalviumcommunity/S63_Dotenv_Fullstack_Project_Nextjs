@@ -1,10 +1,11 @@
+import { NextRequest, NextResponse } from "next/server";
 import { sendSuccess, sendError } from "@/lib/config/responses";
 import { ERROR_CODES } from "@/lib/config/errorCodes";
 import { handleError } from "@/lib/config/errorHandler";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "http://localhost:5000";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
 
@@ -38,10 +39,23 @@ export async function POST(req: Request) {
 
     const data = await response.json();
 
-    return sendSuccess(
-      data.data,
-      data.message || "Login successful"
+    // Forward the response including cookies (refresh token)
+    const nextResponse = NextResponse.json(
+      {
+        success: data.success,
+        message: data.message || "Login successful",
+        data: data.data,
+      },
+      { status: response.status }
     );
+
+    // Forward cookies from backend response
+    const setCookieHeader = response.headers.get("set-cookie");
+    if (setCookieHeader) {
+      nextResponse.headers.set("set-cookie", setCookieHeader);
+    }
+
+    return nextResponse;
   } catch (err) {
     return handleError(err, { route: "/api/auth/login", method: "POST" });
   }

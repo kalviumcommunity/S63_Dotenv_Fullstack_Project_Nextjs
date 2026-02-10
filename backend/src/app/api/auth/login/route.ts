@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import { prisma } from "@/lib/database";
+import { generateAccessToken, generateRefreshToken } from "@/lib/auth/tokens";
 
-const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey123";
+const isProduction = process.env.NODE_ENV === "production";
 
 export async function POST(req: NextRequest) {
   try {
@@ -66,31 +66,48 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-      },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    // Generate tokens
+    const accessToken = generateAccessToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    });
+    
+    const refreshToken = generateRefreshToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    });
 
-    // Return user data (without password) and token
+    // Return user data (without password) and access token
     const { password: _, ...userWithoutPassword } = user;
 
-    return NextResponse.json(
+    // Create response with access token in body
+    const response = NextResponse.json(
       {
         success: true,
         message: "Login successful",
         data: {
-          token,
+          accessToken,
           user: userWithoutPassword,
         },
       },
       { status: 200 }
     );
+
+    // Set refresh token as HTTP-only, Secure cookie
+    response.cookies.set("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: isProduction, // Only send over HTTPS in production
+      sameSite: "strict",
+      maxAge: 60 * 60 * 24 * 7, // 7 days in seconds
+      path: "/",
+    });
+
+    // Log successful login (without sensitive data)
+    console.log(`User ${user.id} (${user.email}) logged in successfully`);
+
+    return response;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
     console.error("Login error:", err);
