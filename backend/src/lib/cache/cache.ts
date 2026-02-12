@@ -33,11 +33,15 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
   const redis = getRedisClient();
   if (!redis) return null;
   try {
+    // Check if client is ready before attempting operation
+    if (redis.status !== "ready" && redis.status !== "connecting") {
+      return null;
+    }
     const raw = await redis.get(key);
     if (raw == null) return null;
     return JSON.parse(raw) as T;
   } catch (err) {
-    console.error("[Cache] get error:", (err as Error).message, "key:", key);
+    // Silently fail - fallback to database
     return null;
   }
 }
@@ -49,10 +53,15 @@ export async function cacheSet(key: string, value: unknown, ttlSeconds: number):
   const redis = getRedisClient();
   if (!redis) return;
   try {
+    // Check if client is ready before attempting operation
+    if (redis.status !== "ready" && redis.status !== "connecting") {
+      return;
+    }
     const serialized = JSON.stringify(value);
     await redis.setex(key, ttlSeconds, serialized);
   } catch (err) {
-    console.error("[Cache] set error:", (err as Error).message, "key:", key);
+    // Silently fail - cache is optional
+    return;
   }
 }
 
@@ -65,14 +74,25 @@ export async function cacheAside<T>(
   ttlSeconds: number,
   fetch: () => Promise<T>
 ): Promise<T> {
+  // Try to get from cache, but don't fail if cache is unavailable
   const cached = await cacheGet<T>(key);
   if (cached !== null) {
     console.log("[Cache] CACHE HIT key=" + key);
     return cached;
   }
-  console.log("[Cache] CACHE MISS key=" + key);
+  
+  // Only log cache miss if Redis is actually configured (to reduce noise)
+  const redis = getRedisClient();
+  if (redis) {
+    console.log("[Cache] CACHE MISS key=" + key);
+  }
+  
+  // Fetch from database
   const data = await fetch();
+  
+  // Try to cache the result, but don't fail if caching fails
   await cacheSet(key, data, ttlSeconds);
+  
   return data;
 }
 
@@ -83,13 +103,17 @@ export async function cacheInvalidatePattern(pattern: string): Promise<void> {
   const redis = getRedisClient();
   if (!redis) return;
   try {
+    if (redis.status !== "ready" && redis.status !== "connecting") {
+      return;
+    }
     const keys = await redis.keys(pattern);
     if (keys.length > 0) {
       await redis.del(...keys);
       console.log("[Cache] CACHE INVALIDATE pattern=" + pattern + " keys=" + keys.length);
     }
   } catch (err) {
-    console.error("[Cache] invalidate error:", (err as Error).message, "pattern:", pattern);
+    // Silently fail - cache invalidation is optional
+    return;
   }
 }
 
@@ -100,10 +124,14 @@ export async function cacheInvalidateKey(key: string): Promise<void> {
   const redis = getRedisClient();
   if (!redis) return;
   try {
+    if (redis.status !== "ready" && redis.status !== "connecting") {
+      return;
+    }
     await redis.del(key);
     console.log("[Cache] CACHE INVALIDATE key=" + key);
   } catch (err) {
-    console.error("[Cache] invalidate error:", (err as Error).message, "key:", key);
+    // Silently fail - cache invalidation is optional
+    return;
   }
 }
 

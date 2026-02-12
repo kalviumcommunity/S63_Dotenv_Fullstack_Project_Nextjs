@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { sendSuccess } from "@/lib/responseHandler";
+import { sendSuccess } from "@/lib/config/responses";
 
 /**
  * GET /api/admin (Protected Admin Route)

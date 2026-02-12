@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch } from "./client";
+import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
 
 export async function fetchIssues(params?: {
   category?: string;
@@ -41,6 +41,11 @@ export async function updateIssue(
   }
 ) {
   return apiPatch(`/api/issues/${id}`, data);
+}
+
+export async function deleteIssue(id: string) {
+  const result = await apiDelete<{ success: boolean; message?: string }>(`/api/issues/${id}`);
+  return result;
 }
 
 export async function fetchIssueProgress(id: string) {

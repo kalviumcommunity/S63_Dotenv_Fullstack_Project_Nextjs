@@ -1,6 +1,7 @@
-import { NextRequest } from "next/server";
-import { jsonWithCors } from "@/middleware/cors";
-import { verifyToken, extractTokenFromHeader } from "@/services/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { jsonWithCors, handleOptions } from "@/middleware/cors";
+import { requirePermission, AuthenticatedRequest } from "@/lib/rbac/middleware";
+import { logAccessGranted } from "@/lib/rbac/logging";
 import { prisma } from "@/lib/database";
 
 interface AssignRequest {
@@ -20,55 +21,61 @@ interface AssignRequest {
 }
 
 /**
+ * Handle OPTIONS preflight request
+ */
+export async function OPTIONS(req: NextRequest) {
+  return handleOptions(req);
+}
+
+/**
  * POST /api/ai/assign - AI-powered officer assignment suggestions
+ * Requires: create permission (admin only in practice)
  */
 export async function POST(req: NextRequest) {
-  try {
-    const token = extractTokenFromHeader(req.headers.get("authorization"));
-    if (!token) {
-      return jsonWithCors({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+  // Check permission
+  const authCheck = await requirePermission("create", "/api/ai/assign")(req);
+  if (authCheck instanceof NextRequest) {
+    const authReq = authCheck as AuthenticatedRequest;
+    const user = authReq.user!;
+    
+    // Log access granted
+    logAccessGranted(
+      user.id,
+      user.email,
+      user.role,
+      "create",
+      "/api/ai/assign",
+      "POST"
+    );
+    
+    try {
+      const body = (await req.json()) as AssignRequest;
+      const origin = req.headers.get("origin");
 
-    const payload = verifyToken(token);
-    if (!payload) {
-      return jsonWithCors({ success: false, message: "Invalid token" }, { status: 401 });
-    }
+      if (!body.issueId || !body.officers || !body.issue) {
+        return jsonWithCors({ success: false, message: "Missing required fields" }, { status: 400 }, origin);
+      }
 
-    const user = await prisma.user.findUnique({
-      where: { id: payload.id },
-      select: { id: true, role: true },
-    });
-
-    if (!user || user.role !== "admin") {
-      return jsonWithCors({ success: false, message: "Forbidden" }, { status: 403 });
-    }
-
-    const body = (await req.json()) as AssignRequest;
-
-    if (!body.issueId || !body.officers || !body.issue) {
-      return jsonWithCors({ success: false, message: "Missing required fields" }, { status: 400 });
-    }
-
-    // Use Gemini API for smart assignment
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) {
-      // Fallback to simple logic if no API key
-      const sortedOfficers = [...body.officers].sort(
-        (a, b) => a.activeAssignments - b.activeAssignments
-      );
-      return jsonWithCors({
-        success: true,
-        data: {
-          recommendedOfficerId: sortedOfficers[0]?.id || null,
-          confidence: 0.7,
-          reasoning: ["Balanced workload distribution"],
-          alternatives: sortedOfficers.slice(1, 3).map((o) => ({
-            officerId: o.id,
-            reason: `Currently has ${o.activeAssignments} active assignments`,
-          })),
-        },
-      });
-    }
+      // Use Gemini API for smart assignment
+      const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+      if (!GEMINI_API_KEY) {
+        // Fallback to simple logic if no API key
+        const sortedOfficers = [...body.officers].sort(
+          (a, b) => a.activeAssignments - b.activeAssignments
+        );
+        return jsonWithCors({
+          success: true,
+          data: {
+            recommendedOfficerId: sortedOfficers[0]?.id || null,
+            confidence: 0.7,
+            reasoning: ["Balanced workload distribution"],
+            alternatives: sortedOfficers.slice(1, 3).map((o) => ({
+              officerId: o.id,
+              reason: `Currently has ${o.activeAssignments} active assignments`,
+            })),
+          },
+        }, undefined, origin);
+      }
 
     const officerList = body.officers
       .map(
@@ -137,7 +144,7 @@ export async function POST(req: NextRequest) {
             reasoning: parsed.reasoning || ["AI analysis"],
             alternatives: parsed.alternatives || [],
           },
-        });
+        }, undefined, origin);
       }
     } catch (err) {
       console.error("Gemini API error:", err);
@@ -158,9 +165,24 @@ export async function POST(req: NextRequest) {
           reason: `Currently has ${o.activeAssignments} active assignments`,
         })),
       },
-    });
-  } catch (err) {
-    console.error("POST /api/ai/assign:", err);
-    return jsonWithCors({ success: false, message: "Failed to generate assignment suggestion" }, { status: 500 });
+    }, undefined, origin);
+    } catch (err) {
+      console.error("POST /api/ai/assign:", err);
+      const origin = req.headers.get("origin");
+      return jsonWithCors({ success: false, message: "Failed to generate assignment suggestion" }, { status: 500 }, origin);
+    }
   }
+  
+  // Permission denied - add CORS headers to error response
+  const origin = req.headers.get("origin");
+  const errorResponse = authCheck as NextResponse;
+  const corsHeaders = new Headers(errorResponse.headers);
+  if (origin) {
+    corsHeaders.set("Access-Control-Allow-Origin", origin);
+    corsHeaders.set("Access-Control-Allow-Credentials", "true");
+  }
+  return new NextResponse(errorResponse.body, {
+    status: errorResponse.status,
+    headers: corsHeaders,
+  });
 }

@@ -36,6 +36,7 @@ The server will start on http://localhost:5000
 - `POST /api/issues` - Create issue (title, description, category, latitude, longitude, isAnonymous, reportedById)
 - `GET /api/issues/:id` - Get issue by id or publicId (e.g. CT-00001)
 - `PATCH /api/issues/:id` - Update issue (status, assignedToId, resolutionNotes, proofUrls, etc.)
+- `DELETE /api/issues/:id` - Delete issue (admin only)
 
 ## CivicTrack: Role enum
 
@@ -82,30 +83,58 @@ All error responses are JSON only (no redirects), and use the shared `responseHa
 
 ## Role-Based Access Control (RBAC)
 
-- The Prisma `User` model (backend) has a `role` field:
-  - Possible values: `"admin"`, `"user"` (enforced via a Prisma `Role` enum).
-  - Default value: `"user"`.
-- The `role` is:
-  - Stored in the database.
-  - Included in the JWT payload after login.
-  - Read by the middleware to enforce access rules.
+The application implements a comprehensive RBAC system with permission-based access control. See [RBAC.md](./RBAC.md) for complete documentation.
+
+### Roles & Permissions
+
+| Role | Permissions | Description |
+|------|-------------|-------------|
+| **citizen** | `create`, `read` | Can create issues (report) and read/view issues |
+| **officer** | `read`, `update` | Can read issues and update progress/status |
+| **admin** | `create`, `read`, `update`, `delete` | Full access to all operations |
+
+### Enforcement
+
+- **Backend**: All API routes enforce permissions via centralized middleware
+- **Frontend**: UI elements conditionally render based on user permissions
+- **Logging**: All permission checks are logged for auditing
 
 ### Allowed vs Denied Examples
 
 - **Allowed**
-  - `GET /api/users` with a valid JWT for a `"user"`:
-    - ✅ Allowed (HTTP 200).
-  - `GET /api/users` with a valid JWT for an `"admin"`:
-    - ✅ Allowed (HTTP 200).
-  - `GET /api/admin` with a valid JWT for an `"admin"`:
-    - ✅ Allowed (HTTP 200) and returns a success message.
+  - `POST /api/issues` with a valid JWT for a `"citizen"` (has `create` permission): ✅ Allowed
+  - `PATCH /api/issues/:id` with a valid JWT for an `"officer"` (has `update` permission): ✅ Allowed
+  - `GET /api/users/officers` with a valid JWT for an `"admin"` (has `read` permission): ✅ Allowed
+  - `DELETE /api/issues/:id` with a valid JWT for an `"admin"` (has `delete` permission): ✅ Allowed
+
 - **Denied**
-  - `GET /api/users` with **no token**:
-    - ❌ Denied with **401** (missing token).
-  - `GET /api/users` with an **invalid/expired** token:
-    - ❌ Denied with **403**.
-  - `GET /api/admin` with a valid JWT for a `"user"`:
-    - ❌ Denied with **403** (not enough privileges).
+  - `PATCH /api/issues/:id` with a valid JWT for a `"citizen"` (no `update` permission): ❌ Forbidden (HTTP 403)
+  - `DELETE /api/issues/:id` with a valid JWT for an `"officer"` (no `delete` permission): ❌ Forbidden (HTTP 403)
+  - `GET /api/users/officers` with a valid JWT for a `"citizen"` (no `read` permission for this resource): ❌ Forbidden (HTTP 403)
+
+For detailed RBAC documentation, see [RBAC.md](./RBAC.md).
+
+### Enforcement Flow
+
+1. **Incoming request** → API route receives request with `Authorization: Bearer <JWT>`
+2. **Verify JWT** → Extract and verify token; reject with 401 if invalid/expired
+3. **Extract role** → Role comes from verified JWT payload only; never from body or frontend
+4. **Check permission** → Use centralized `ROLE_PERMISSIONS` mapping; deny by default
+5. **If allowed** → Proceed; log `[RBAC] role=X action=Y resource=Z result=ALLOWED`
+6. **If denied** → Return 403; log `[RBAC] role=X action=Y resource=Z result=DENIED`
+
+### Example Log Output
+
+```
+[RBAC] role=admin action=delete resource=/api/issues/123 result=ALLOWED
+[RBAC] role=officer action=delete resource=/api/issues/456 result=DENIED
+```
+
+### Scalability, Auditing & Future Extension
+
+- **Scalability**: Single `ROLE_PERMISSIONS` config; add roles/permissions by extending the mapping
+- **Auditing**: All checks logged in consistent format; easy to pipe to log aggregators
+- **Extension**: Add new roles (e.g. `moderator`) or permissions (e.g. `approve`) by updating `backend/src/lib/rbac/permissions.ts`
 
 ## Least-Privilege Principle
 
@@ -122,9 +151,9 @@ This project follows the **least-privilege principle**:
 
 By default, users can only access what they need (`/api/users` with valid JWT), while sensitive admin operations are limited to a small, trusted set of identities.
 
-## Redis Caching
+## Redis Caching (Optional)
 
-A production-ready Redis caching layer is integrated to improve API performance for frequently read data.
+A production-ready Redis caching layer is integrated to improve API performance for frequently read data. **Redis is completely optional** - the application works perfectly fine without it.
 
 ### Why Redis was added
 
@@ -136,7 +165,17 @@ A production-ready Redis caching layer is integrated to improve API performance 
 
 - **Flow**: On a GET request we first check Redis. On **cache hit** we return the stored JSON immediately. On **cache miss** we load from the database, store the serialized response in Redis with a TTL, then return it.
 - **Single Redis instance**: The app uses one shared Redis client (see `src/lib/redis.ts`); connection is created from `REDIS_URL` and reused.
-- **Error safety**: If Redis is unavailable or any cache operation fails, the API does not crash: we log the error and fall back to the database. Responses remain correct.
+- **Error safety**: If Redis is unavailable or any cache operation fails, the API does not crash: we log a warning once and fall back to the database. Responses remain correct. The app runs normally without Redis.
+
+### Running without Redis
+
+To run the application without Redis, simply **remove or comment out** the `REDIS_URL` line in your `.env` file:
+
+```env
+# REDIS_URL=redis://localhost:6379  # Commented out - app runs without cache
+```
+
+The application will automatically detect that Redis is not configured and run without caching. All API endpoints will work normally, they'll just query the database directly instead of using cache.
 
 ### TTL policy and reasoning
 
@@ -149,6 +188,7 @@ A production-ready Redis caching layer is integrated to improve API performance 
 - **On mutations we invalidate related cache** so stale data is not served:
   - **POST /api/issues** (create): Invalidates all issue list cache keys (`issues:list:*`).
   - **PATCH /api/issues/:id** (update): Invalidates the list cache and the single-issue cache for that id (both numeric and `publicId`).
+  - **DELETE /api/issues/:id**: Invalidates list cache and single-issue cache.
 - Invalidation is explicit and intentional: only these mutation paths clear cache; no background TTL-only reliance for consistency.
 
 ### Observability
