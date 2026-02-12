@@ -10,9 +10,10 @@ import {
   issuesOneCacheKey,
   getIssuesOneTtl,
 } from "@/lib/cache";
-import { IssueStatus } from "@prisma/client";
+import { IssueStatus, Prisma } from "@prisma/client";
 import { requirePermission, AuthenticatedRequest } from "@/lib/rbac/middleware";
 import { logAccessGranted } from "@/lib/rbac/logging";
+import { sanitizeField } from "@/lib/security";
 
 type ParamsPromise = { params: Promise<{ id: string }> };
 
@@ -127,7 +128,17 @@ export async function PATCH(req: NextRequest, context: ParamsPromise) {
     if (body.assignedToId !== undefined) {
       updates.assignedToId = body.assignedToId === null ? null : Number(body.assignedToId);
     }
-    if (body.resolutionNotes !== undefined) updates.resolutionNotes = body.resolutionNotes;
+    if (body.resolutionNotes !== undefined && typeof body.resolutionNotes === "string") {
+      try {
+        updates.resolutionNotes = sanitizeField(body.resolutionNotes, "resolutionNotes");
+      } catch {
+        return jsonWithCors(
+          { success: false, message: "Invalid input: disallowed content detected", error: { code: "VALIDATION_ERROR" } },
+          { status: 400 },
+          origin
+        );
+      }
+    }
     if (body.proofUrls !== undefined) updates.proofUrls = body.proofUrls;
     if (body.satisfactionRating !== undefined) updates.satisfactionRating = body.satisfactionRating;
     if (body.reopened !== undefined) updates.reopened = body.reopened;
@@ -135,7 +146,7 @@ export async function PATCH(req: NextRequest, context: ParamsPromise) {
 
     const updated = await prisma.issue.update({
       where: { id: issue.id },
-      data: updates,
+      data: updates as Prisma.IssueUpdateInput,
       include: {
         reportedBy: { select: { id: true, name: true } },
         assignedTo: { select: { id: true, name: true, email: true, role: true } },

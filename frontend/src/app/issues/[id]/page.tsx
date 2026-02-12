@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useSWRConfig } from "swr";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,9 +11,9 @@ import ProgressGraph from "@/components/features/issues/ProgressGraph";
 import AnimatedCard from "@/components/shared/animations/AnimatedCard";
 import SkeletonLoader from "@/components/shared/animations/SkeletonLoader";
 import PermissionGate from "@/components/rbac/PermissionGate";
-import { getCategoryLabel, formatSlaDeadline } from "@/lib/utils";
-import { fetchIssue, fetchIssueProgress, fetchOfficers, updateIssue, deleteIssue, getAiAssignmentSuggestion } from "@/lib/api";
-import { safeVariants, microTransitions } from "@/lib/animations";
+import { getCategoryLabel } from "@/lib/utils";
+import { fetchIssue, fetchIssueProgress, fetchOfficers, updateIssue, deleteIssue } from "@/lib/api";
+import { safeVariants } from "@/lib/animations";
 import type { IssueCardIssue } from "@/components/features/issues/IssueCard";
 
 interface AssignedWorker {
@@ -47,6 +46,8 @@ type IssueDetail = IssueCardIssue & {
   description?: string | null;
   ward?: string | null;
   slaDeadline?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
   reportedBy?: { id: number; name: string } | null;
   assignedTo?: { id: number; name: string; email?: string; role?: string } | null;
   progressPercentage?: number;
@@ -55,7 +56,6 @@ type IssueDetail = IssueCardIssue & {
 export default function IssueDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { mutate } = useSWRConfig();
   const { user } = useAuth();
   const issueId = params?.id;
   const [issue, setIssue] = useState<IssueDetail | null>(null);

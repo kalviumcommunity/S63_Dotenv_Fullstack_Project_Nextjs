@@ -6,7 +6,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "htt
 
 type ParamsPromise = { params: Promise<{ id: string }> };
 
-export async function GET(req: Request, context: ParamsPromise) {
+export async function GET(_req: Request, context: ParamsPromise) {
   try {
     const { id } = await context.params;
     const response = await fetch(`${BACKEND_URL}/api/issues/${id}/progress`, {

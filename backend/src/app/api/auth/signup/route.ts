@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/database";
+import { sanitizeField } from "@/lib/security";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,8 +18,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    let sanitizedName: string;
+    let sanitizedEmail: string;
+    try {
+      sanitizedName = sanitizeField(name, "name");
+      sanitizedEmail = sanitizeField(email, "email");
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid input: disallowed content detected",
+          error: { code: "VALIDATION_ERROR" },
+        },
+        { status: 400 }
+      );
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(sanitizedEmail)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid email format",
+          error: { code: "VALIDATION_ERROR" },
+        },
+        { status: 400 }
+      );
+    }
+
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: sanitizedEmail },
       select: {
         id: true,
         email: true,
@@ -40,8 +69,8 @@ export async function POST(req: NextRequest) {
 
     const user = await prisma.user.create({
       data: {
-        name,
-        email,
+        name: sanitizedName,
+        email: sanitizedEmail,
         password: hashedPassword,
       },
     });

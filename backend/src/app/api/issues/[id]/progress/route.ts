@@ -3,6 +3,7 @@ import { prisma } from "@/lib/database";
 import { jsonWithCors, handleOptions } from "@/middleware/cors";
 import { requirePermission, AuthenticatedRequest } from "@/lib/rbac/middleware";
 import { logAccessGranted } from "@/lib/rbac/logging";
+import { sanitizeField } from "@/lib/security";
 
 type ParamsPromise = { params: Promise<{ id: string }> };
 
@@ -103,7 +104,20 @@ export async function POST(req: NextRequest, context: ParamsPromise) {
     try {
       const body = await req.json();
       const { percentage, notes } = body;
-      
+
+      let sanitizedNotes: string | null = null;
+      if (notes != null && typeof notes === "string") {
+        try {
+          sanitizedNotes = sanitizeField(notes, "notes");
+        } catch {
+          return jsonWithCors(
+            { success: false, message: "Invalid input: disallowed content detected", error: { code: "VALIDATION_ERROR" } },
+            { status: 400 },
+            origin
+          );
+        }
+      }
+
       if (typeof percentage !== "number" || percentage < 0 || percentage > 100) {
         return jsonWithCors(
           { success: false, message: "Invalid percentage (must be 0-100)" },
@@ -134,7 +148,7 @@ export async function POST(req: NextRequest, context: ParamsPromise) {
         data: {
           issueId: issue.id,
           percentage,
-          notes: notes || null,
+          notes: sanitizedNotes,
           updatedById: user.id,
         },
         include: {

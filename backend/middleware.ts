@@ -31,7 +31,7 @@ export function middleware(req: NextRequest) {
     return res;
   }
 
-  // Add CORS headers to all responses
+  // Add CORS and security headers to all responses
   const res = NextResponse.next();
   res.headers.set("Access-Control-Allow-Origin", allowedOrigin);
   res.headers.set("Access-Control-Allow-Credentials", "true");
@@ -39,6 +39,16 @@ export function middleware(req: NextRequest) {
   res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   res.headers.set("Access-Control-Max-Age", "86400");
   res.headers.set("Access-Control-Expose-Headers", "Set-Cookie");
+
+  // OWASP security headers
+  res.headers.set("X-Content-Type-Options", "nosniff");
+  res.headers.set("X-Frame-Options", "DENY");
+  res.headers.set("X-XSS-Protection", "1; mode=block");
+  res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'"
+  );
 
   return res;
 }

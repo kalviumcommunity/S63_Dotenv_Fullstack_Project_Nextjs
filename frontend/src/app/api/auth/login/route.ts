@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendSuccess, sendError } from "@/lib/config/responses";
+import { sendError } from "@/lib/config/responses";
 import { ERROR_CODES } from "@/lib/config/errorCodes";
 import { handleError } from "@/lib/config/errorHandler";
 

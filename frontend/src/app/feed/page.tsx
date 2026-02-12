@@ -109,7 +109,7 @@ export default function FeedPage() {
     if (status) list = list.filter((i) => i.status === status);
     if (location)
       list = list.filter((i) =>
-        String(i.ward || i.location || "")
+        String(i.ward ?? (i as Record<string, unknown>).location ?? "")
           .toLowerCase()
           .includes(location.toLowerCase())
       );

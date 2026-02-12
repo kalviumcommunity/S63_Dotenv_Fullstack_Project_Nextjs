@@ -3,6 +3,7 @@ import { jsonWithCors, handleOptions } from "@/middleware/cors";
 import { requirePermission, AuthenticatedRequest } from "@/lib/rbac/middleware";
 import { logAccessGranted } from "@/lib/rbac/logging";
 import { prisma } from "@/lib/database";
+import { sanitizeField, sanitizeString } from "@/lib/security";
 
 interface AssignRequest {
   issueId: number;
@@ -56,6 +57,17 @@ export async function POST(req: NextRequest) {
         return jsonWithCors({ success: false, message: "Missing required fields" }, { status: 400 }, origin);
       }
 
+      let safeTitle: string;
+      let safeDescription: string | null = null;
+      try {
+        safeTitle = sanitizeField(body.issue.title ?? "", "title");
+        if (body.issue.description && typeof body.issue.description === "string") {
+          safeDescription = sanitizeField(body.issue.description, "description");
+        }
+      } catch {
+        return jsonWithCors({ success: false, message: "Invalid input: disallowed content detected" }, { status: 400 }, origin);
+      }
+
       // Use Gemini API for smart assignment
       const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
       if (!GEMINI_API_KEY) {
@@ -78,19 +90,20 @@ export async function POST(req: NextRequest) {
       }
 
     const officerList = body.officers
-      .map(
-        (o, idx) =>
-          `${idx + 1}. ${o.name} (ID: ${o.id}, Email: ${o.email}, Active Assignments: ${o.activeAssignments})`
-      )
+      .map((o, idx) => {
+        const safeName = sanitizeString(o.name ?? "", { allowReject: false }).value;
+        const safeEmail = sanitizeString(o.email ?? "", { allowReject: false }).value;
+        return `${idx + 1}. ${safeName} (ID: ${o.id}, Email: ${safeEmail}, Active Assignments: ${o.activeAssignments})`;
+      })
       .join("\n");
 
     const prompt = [
       "You are an AI assistant helping assign civic issues to officers.",
       "",
       "Issue Details:",
-      `- Title: ${body.issue.title}`,
+      `- Title: ${safeTitle}`,
       `- Category: ${body.issue.category}`,
-      `- Description: ${body.issue.description || "None"}`,
+      `- Description: ${safeDescription || "None"}`,
       `- Reported: ${new Date(body.issue.createdAt).toLocaleDateString()}`,
       "",
       "Available Officers:",

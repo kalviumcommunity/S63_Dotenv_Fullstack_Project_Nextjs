@@ -88,7 +88,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.topNeglect.map((row) => (
+                    {data.topNeglect.map((row: { ward: string; neglectIndex: number; overdueRate: number; avgOpenAgeHours: number; open: number; total: number }) => (
                       <tr key={row.ward} className="border-b border-[var(--border)]/50">
                         <td className="py-2 pr-4 font-medium">{row.ward}</td>
                         <td className="py-2 pr-4">{(row.neglectIndex * 100).toFixed(1)}%</td>
@@ -118,7 +118,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.wards.map((w) => (
+                    {data.wards.map((w: { ward: string; total: number; open: number; resolved: number; resolutionRate: number; overdueRate: number }) => (
                       <tr key={w.ward} className="border-b border-[var(--border)]/50">
                         <td className="py-2 pr-4 font-medium">{w.ward}</td>
                         <td className="py-2 pr-4">{w.total}</td>

@@ -20,7 +20,7 @@ export default function MapPage() {
   const [useForReportLoading, setUseForReportLoading] = useState(false);
   const [issues, setIssues] = useState<IssueCardIssue[]>([]);
   const [fairness, setFairness] = useState<any | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -89,11 +89,11 @@ export default function MapPage() {
 
   const mapMarkers = useMemo(() => {
     return issues
-      .filter((i) => typeof i.latitude === "number" && typeof i.longitude === "number")
+      .filter((i) => typeof (i as Record<string, unknown>).latitude === "number" && typeof (i as Record<string, unknown>).longitude === "number")
       .map((issue) => ({
-        id: issue.id,
-        lat: Number(issue.latitude),
-        lng: Number(issue.longitude),
+        id: String(issue.id),
+        lat: Number((issue as Record<string, unknown>).latitude),
+          lng: Number((issue as Record<string, unknown>).longitude),
         title: issue.title,
         status: issue.status,
       }));
@@ -104,7 +104,7 @@ export default function MapPage() {
     setCenter([lat, lng]);
   }
 
-  function handleSearchSelect(lat: number, lng: number, displayName?: string) {
+  function handleSearchSelect(lat: number, lng: number, _displayName?: string) {
     setSelectedLocation({ lat, lng });
     setCenter([lat, lng]);
   }

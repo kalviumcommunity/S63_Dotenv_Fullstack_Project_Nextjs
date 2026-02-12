@@ -33,7 +33,9 @@ export async function checkPermissionAndRespond(
   | { ok: false; response: NextResponse }
 > {
   const authResult = await authenticateRequest(req);
-  if ("error" in authResult) return { ok: false, response: authResult.error };
+  if ("error" in authResult) {
+    return { ok: false, response: authResult.error as NextResponse };
+  }
 
   const { user } = authResult;
   const checkResult = checkPermission(user.role, permission, resource);
@@ -162,7 +164,7 @@ export function requireAuth() {
 
     const authResult = await authenticateRequest(req);
     if ("error" in authResult) {
-      return authResult.error;
+      return authResult.error as NextResponse;
     }
     (req as AuthenticatedRequest).user = authResult.user;
     return req as AuthenticatedRequest;
@@ -183,7 +185,7 @@ export function requirePermission(permission: Permission, resource?: string) {
     // First authenticate
     const authResult = await authenticateRequest(req);
     if ("error" in authResult) {
-      return authResult.error;
+      return authResult.error as NextResponse;
     }
 
     const { user } = authResult;
@@ -233,7 +235,7 @@ export function requireAnyPermission(permissions: Permission[], resource?: strin
 
     const authResult = await authenticateRequest(req);
     if ("error" in authResult) {
-      return authResult.error;
+      return authResult.error as NextResponse;
     }
 
     const { user } = authResult;
@@ -286,7 +288,7 @@ export function requireRole(requiredRole: AppRole) {
 
     const authResult = await authenticateRequest(req);
     if ("error" in authResult) {
-      return authResult.error;
+      return authResult.error as NextResponse;
     }
 
     const { user } = authResult;

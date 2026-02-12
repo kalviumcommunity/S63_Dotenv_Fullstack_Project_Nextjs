@@ -136,6 +136,72 @@ For detailed RBAC documentation, see [RBAC.md](./RBAC.md).
 - **Auditing**: All checks logged in consistent format; easy to pipe to log aggregators
 - **Extension**: Add new roles (e.g. `moderator`) or permissions (e.g. `approve`) by updating `backend/src/lib/rbac/permissions.ts`
 
+## Security: XSS & SQL Injection Protection
+
+The application implements OWASP-aligned input sanitization and output encoding to protect against XSS and SQL injection.
+
+### XSS (Cross-Site Scripting) Risks
+
+User-generated content (titles, descriptions, notes) could contain malicious HTML/JavaScript. Without sanitization, rendered in a browser it could execute scripts, steal sessions, or deface pages.
+
+### SQL Injection Risks
+
+Untrusted input concatenated into SQL queries can allow attackers to manipulate queries. The application uses **Prisma ORM** which parameterizes all queries—no raw string interpolation.
+
+### Sanitization Utility
+
+Centralized in `src/lib/security/sanitize.ts`:
+
+- Uses **isomorphic-dompurify** to strip script tags, event handlers, malicious attributes
+- Strips ALL HTML for plain-text storage (`ALLOWED_TAGS: []`)
+- Rejects suspicious patterns (XSS, SQLi indicators) by default (fail-closed)
+- Enforces input length limits per field
+- Configurable for safe extensions
+
+**Flow**: Validate (schema/required) → Sanitize → Store → Encode on render.
+
+### Before/After Example
+
+| Input | Result |
+|-------|--------|
+| `Hello World` | Passes unchanged |
+| `<script>alert("XSS")</script>` | Rejected or stripped to empty |
+| `' OR 1=1 --` | Rejected (SQLi pattern) |
+| `<b>Bold</b> text` | Stripped to `Bold text` |
+
+### OWASP Practices Followed
+
+- **Validate then sanitize**: Never sanitize without validating; never trust sanitized input as fully safe
+- **Backend enforcement**: All API inputs sanitized server-side; frontend validation is additive
+- **Parameterized queries**: Prisma uses bound parameters; no concatenated SQL
+- **Output encoding**: React escapes by default; no `dangerouslySetInnerHTML` with user content
+- **Secure headers**: X-Content-Type-Options, X-Frame-Options, CSP, Referrer-Policy
+- **Safe errors**: No stack traces or sensitive data in production responses
+
+### Sanitization Demo
+
+`POST /api/security/sanitize-demo` — controlled test (no DB storage):
+
+```json
+{"input": "<script>alert('XSS')</script>"}
+→ {"sanitized": "", "wasModified": true, "rejected": true}
+```
+
+### Defense in Depth
+
+1. **Input validation** (schema, format, length)
+2. **Input sanitization** (strip/escape dangerous content)
+3. **Parameterized DB queries** (Prisma)
+4. **Output encoding** (React escaping, CSP)
+5. **Secure headers** (CSP, X-Frame-Options, etc.)
+
+### Future Improvements
+
+- Rate limiting to reduce brute-force and DoS
+- WAF (Web Application Firewall) for additional layer
+- Stricter CSP (e.g. remove `unsafe-inline` where possible)
+- Content-Security-Policy-Report-Only for monitoring
+
 ## Least-Privilege Principle
 
 This project follows the **least-privilege principle**:

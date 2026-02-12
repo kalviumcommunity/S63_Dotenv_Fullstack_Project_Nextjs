@@ -355,7 +355,7 @@ export default function ReportPage() {
         longitude: lng,
       };
       const data = await createIssue(body);
-      const id = data?.data?.id ?? data?.id;
+      const id = (data as { data?: { id?: number }; id?: number })?.data?.id ?? (data as { data?: { id?: number }; id?: number })?.id;
       toast.dismiss(loadingToast);
       toast.success("Issue reported successfully!");
       setSuccessId(id != null ? String(id) : null);
