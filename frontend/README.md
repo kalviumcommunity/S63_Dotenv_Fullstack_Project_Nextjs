@@ -204,7 +204,7 @@ function LoginForm() {
 
 ---
 
-## 🛡️ Route Protection
+## 🛡️ Route Protection & RBAC
 
 ### ProtectedRoute Component
 
@@ -225,6 +225,45 @@ export default function DashboardPage() {
 - Optional role-based access (`requireRole`)
 - Redirects to `/login` if not authenticated
 - Shows loading state during auth check
+
+### Permission-Based UI Rendering
+
+The application uses a comprehensive RBAC system for conditional UI rendering:
+
+**Using Permission Hooks:**
+```typescript
+import { useHasPermission } from "@/hooks/usePermissions";
+
+function MyComponent() {
+  const canUpdate = useHasPermission("update");
+  
+  return (
+    <>
+      {canUpdate && <button>Update Issue</button>}
+    </>
+  );
+}
+```
+
+**Using PermissionGate Component:**
+```typescript
+import PermissionGate from "@/components/rbac/PermissionGate";
+
+function MyComponent() {
+  return (
+    <PermissionGate permission="create">
+      <button>Assign Issue</button>
+    </PermissionGate>
+  );
+}
+```
+
+**Role & Permission Model:**
+- **citizen**: `create`, `read` - Can report issues and view them
+- **officer**: `read`, `update` - Can view and update issue progress
+- **admin**: `create`, `read`, `update`, `delete` - Full access
+
+**Note:** Frontend permission checks are for UI only. Backend always enforces permissions on API routes.
 
 ---
 

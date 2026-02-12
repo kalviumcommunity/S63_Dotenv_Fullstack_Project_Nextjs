@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/database";
-import { jsonWithCors } from "@/middleware/cors";
+import { jsonWithCors, handleOptions } from "@/middleware/cors";
 import { serializeIssue } from "@/utils/serialize";
 import {
   cacheAside,
@@ -9,6 +9,10 @@ import {
   issuesListCacheKey,
 } from "@/lib/cache";
 import { IssueCategory, IssueStatus } from "@prisma/client";
+import { requirePermission, AuthenticatedRequest } from "@/lib/rbac/middleware";
+import { extractTokenFromHeader } from "@/lib/auth/tokens";
+import { logAccessGranted } from "@/lib/rbac/logging";
+import { AppRole } from "@/lib/rbac/permissions";
 
 const ANONYMOUS_EMAIL = "anonymous@civictrack.local";
 
@@ -34,10 +38,19 @@ function nextPublicId(): string {
 }
 
 /**
+ * Handle OPTIONS preflight request
+ */
+export async function OPTIONS(req: NextRequest) {
+  return handleOptions(req);
+}
+
+/**
  * GET /api/issues – List issues (category, status, limit, offset).
  * Uses Redis cache-aside: hit returns cached JSON; miss loads from DB, stores in cache, returns.
  */
 export async function GET(req: NextRequest) {
+  const origin = req.headers.get("origin");
+  
   try {
     const { searchParams } = new URL(req.url);
     const category = searchParams.get("category");
@@ -80,35 +93,75 @@ export async function GET(req: NextRequest) {
       }
     );
 
-    return jsonWithCors(payload);
+    return jsonWithCors(payload, undefined, origin);
   } catch (err) {
-    console.error("GET /api/issues:", err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    const errorStack = err instanceof Error ? err.stack : undefined;
+    console.error("GET /api/issues error:", errorMessage);
+    if (errorStack) {
+      console.error("Stack trace:", errorStack);
+    }
     return jsonWithCors(
       { success: false, message: "Failed to fetch issues", data: { issues: [], total: 0 } },
-      { status: 500 }
+      { status: 500 },
+      origin
     );
   }
 }
 
 /**
  * POST /api/issues – Create issue (title, description?, category, lat/lng?, isAnonymous?, reportedById?)
+ * Requires: create permission (citizens and admins can create issues)
+ * Note: Also allows anonymous issue creation via getOrCreateAnonymousUserId()
  */
 export async function POST(req: NextRequest) {
+  // Try to authenticate and check permission
+  // If no auth token, allow anonymous creation
+  const token = extractTokenFromHeader(req.headers.get("authorization"));
+  let user: { id: number; email: string; role: AppRole } | null = null;
+  
+  if (token) {
+    // Authenticated user - check permission
+    const authCheck = await requirePermission("create", "/api/issues")(req);
+    if (authCheck instanceof NextRequest) {
+      const authReq = authCheck as AuthenticatedRequest;
+      user = authReq.user!;
+      
+      // Log access granted
+      logAccessGranted(
+        user.id,
+        user.email,
+        user.role,
+        "create",
+        "/api/issues",
+        "POST"
+      );
+    } else {
+      // Permission denied for authenticated user
+      return authCheck;
+    }
+  }
+  // If no token, proceed with anonymous creation (user will be null)
+  
+  const origin = req.headers.get("origin");
+  
   try {
     const body = await req.json();
     const title = typeof body.title === "string" ? body.title.trim() : "";
     const category = body.category;
-
+    
     if (!title) {
       return jsonWithCors(
         { success: false, message: "Title is required" },
-        { status: 400 }
+        { status: 400 },
+        origin
       );
     }
     if (!category || !Object.values(IssueCategory).includes(category)) {
       return jsonWithCors(
         { success: false, message: "Valid category is required (GARBAGE, WATER_SUPPLY, ROAD_DAMAGE, STREETLIGHT, OTHER)" },
-        { status: 400 }
+        { status: 400 },
+        origin
       );
     }
 
@@ -146,12 +199,18 @@ export async function POST(req: NextRequest) {
 
     await invalidateIssuesListCache();
 
-    return jsonWithCors({ success: true, data: serializeIssue(raw as Parameters<typeof serializeIssue>[0]) });
+    // Log anonymous creation if no user
+    if (!user) {
+      console.log(`[RBAC] ALLOWED | User: Anonymous | Permission: create | Resource: /api/issues | Method: POST`);
+    }
+
+    return jsonWithCors({ success: true, data: serializeIssue(raw as Parameters<typeof serializeIssue>[0]) }, undefined, origin);
   } catch (err) {
     console.error("POST /api/issues:", err);
     return jsonWithCors(
       { success: false, message: "Failed to create issue" },
-      { status: 500 }
+      { status: 500 },
+      origin
     );
   }
 }

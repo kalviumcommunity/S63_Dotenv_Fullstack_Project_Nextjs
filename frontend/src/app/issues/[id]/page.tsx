@@ -11,8 +11,9 @@ import StatusBadge from "@/components/features/dashboard/StatusBadge";
 import ProgressGraph from "@/components/features/issues/ProgressGraph";
 import AnimatedCard from "@/components/shared/animations/AnimatedCard";
 import SkeletonLoader from "@/components/shared/animations/SkeletonLoader";
+import PermissionGate from "@/components/rbac/PermissionGate";
 import { getCategoryLabel, formatSlaDeadline } from "@/lib/utils";
-import { fetchIssue, fetchIssueProgress, fetchOfficers, updateIssue, getAiAssignmentSuggestion } from "@/lib/api";
+import { fetchIssue, fetchIssueProgress, fetchOfficers, updateIssue, deleteIssue, getAiAssignmentSuggestion } from "@/lib/api";
 import { safeVariants, microTransitions } from "@/lib/animations";
 import type { IssueCardIssue } from "@/components/features/issues/IssueCard";
 
@@ -74,6 +75,7 @@ export default function IssueDetailPage() {
   const [slaDeadline, setSlaDeadline] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [assignSuccess, setAssignSuccess] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadIssue = async () => {
     if (!issueId) return;
@@ -124,7 +126,9 @@ export default function IssueDetailPage() {
   };
 
   const loadOfficers = async () => {
-    if (user?.role !== "admin") return;
+    // Only load officers if user has create permission (for assignment)
+    const { hasPermission } = await import("@/lib/rbac/permissions");
+    if (!user?.role || !hasPermission(user.role, "create")) return;
     try {
       setLoadingOfficers(true);
       const officersData = await fetchOfficers();
@@ -177,13 +181,32 @@ export default function IssueDetailPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!issueId || !confirm("Are you sure you want to delete this issue? This action cannot be undone.")) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteIssue(String(issueId));
+      toast.success("Issue deleted successfully");
+      router.push("/feed");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to delete issue";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   useEffect(() => {
     if (!issueId) return;
     let cancelled = false;
 
     async function load() {
       await Promise.all([loadIssue(), loadProgress()]);
-      if (user?.role === "admin") {
+      // Load officers if user has create permission (for assignment)
+      const { hasPermission } = await import("@/lib/rbac/permissions");
+      if (user?.role && hasPermission(user.role, "create")) {
         await loadOfficers();
       }
     }
@@ -222,13 +245,25 @@ export default function IssueDetailPage() {
             View the details, category, location, and SLA status for this reported issue.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-1.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--border)]/50"
-        >
-          Back
-        </button>
+        <div className="flex items-center gap-2">
+          <PermissionGate permission="delete">
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="rounded-lg border border-[var(--danger)]/50 bg-[var(--danger-bg)]/50 px-4 py-1.5 text-sm font-medium text-[var(--danger)] hover:bg-[var(--danger)]/10 disabled:opacity-50"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </button>
+          </PermissionGate>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-1.5 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--border)]/50"
+          >
+            Back
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -346,7 +381,7 @@ export default function IssueDetailPage() {
                       </div>
                     </div>
                   </div>
-                  {user?.role === "admin" && (
+                  <PermissionGate permission="create">
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
@@ -355,7 +390,7 @@ export default function IssueDetailPage() {
                     >
                       Reassign
                     </motion.button>
-                  )}
+                  </PermissionGate>
                 </div>
               </AnimatedCard>
             ) : (
@@ -382,7 +417,7 @@ export default function IssueDetailPage() {
                       </p>
                     </div>
                   </div>
-                  {user?.role === "admin" && (
+                  <PermissionGate permission="create">
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
@@ -392,7 +427,7 @@ export default function IssueDetailPage() {
                     >
                       {loadingOfficers ? "Loading..." : "Assign to Officer"}
                     </motion.button>
-                  )}
+                  </PermissionGate>
                 </div>
               </AnimatedCard>
             )}
@@ -523,7 +558,7 @@ export default function IssueDetailPage() {
 
       {/* Assignment Modal */}
       <AnimatePresence>
-        {showAssignModal && user?.role === "admin" && (
+        {showAssignModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

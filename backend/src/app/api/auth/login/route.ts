@@ -2,21 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/database";
 import { generateAccessToken, generateRefreshToken } from "@/lib/auth/tokens";
+import { handleOptions, jsonWithCors } from "@/middleware/cors";
 
 const isProduction = process.env.NODE_ENV === "production";
 
+/**
+ * Handle OPTIONS preflight request
+ */
+export async function OPTIONS(req: NextRequest) {
+  return handleOptions(req);
+}
+
 export async function POST(req: NextRequest) {
+  const origin = req.headers.get("origin");
+  
   try {
     const { email, password } = await req.json();
 
     if (!email || !password) {
-      return NextResponse.json(
+      return jsonWithCors(
         {
           success: false,
           message: "Email and password are required",
           error: { code: "VALIDATION_ERROR" },
         },
-        { status: 400 }
+        { status: 400 },
+        origin
       );
     }
 
@@ -32,37 +43,40 @@ export async function POST(req: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
+      return jsonWithCors(
         {
           success: false,
           message: "Invalid email or password",
           error: { code: "AUTH_ERROR" },
         },
-        { status: 401 }
+        { status: 401 },
+        origin
       );
     }
 
     if (!user.password) {
-      return NextResponse.json(
+      return jsonWithCors(
         {
           success: false,
           message: "Account has no password set",
           error: { code: "VALIDATION_ERROR" },
         },
-        { status: 401 }
+        { status: 401 },
+        origin
       );
     }
 
     const isValid = await bcrypt.compare(password, user.password);
 
     if (!isValid) {
-      return NextResponse.json(
+      return jsonWithCors(
         {
           success: false,
           message: "Invalid email or password",
           error: { code: "AUTH_ERROR" },
         },
-        { status: 401 }
+        { status: 401 },
+        origin
       );
     }
 
@@ -83,7 +97,7 @@ export async function POST(req: NextRequest) {
     const { password: _, ...userWithoutPassword } = user;
 
     // Create response with access token in body
-    const response = NextResponse.json(
+    const response = jsonWithCors(
       {
         success: true,
         message: "Login successful",
@@ -92,7 +106,8 @@ export async function POST(req: NextRequest) {
           user: userWithoutPassword,
         },
       },
-      { status: 200 }
+      { status: 200 },
+      origin
     );
 
     // Set refresh token as HTTP-only, Secure cookie
@@ -111,13 +126,14 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
     console.error("Login error:", err);
-    return NextResponse.json(
+    return jsonWithCors(
       {
         success: false,
         message: "Login failed",
         error: { code: "INTERNAL_ERROR", details: errorMessage },
       },
-      { status: 500 }
+      { status: 500 },
+      origin
     );
   }
 }

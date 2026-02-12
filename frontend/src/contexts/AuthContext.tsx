@@ -1,7 +1,13 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { setAccessToken, clearAccessToken, refreshAccessToken } from "@/lib/auth/tokenManager";
+import {
+  setAccessToken,
+  clearAccessToken,
+  refreshAccessToken,
+  getAccessToken,
+  decodeTokenPayload,
+} from "@/lib/auth/tokenManager";
 
 export interface User {
   id: number;
@@ -25,16 +31,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user has a valid session by attempting to refresh token
     async function checkSession() {
       try {
-        // Try to refresh token - if refresh token cookie exists, this will succeed
         await refreshAccessToken();
-        // If refresh succeeds, we have a valid session
-        // User data will be loaded from the first authenticated API call
-        // For now, we'll set loading to false and let components handle auth state
+        const token = getAccessToken();
+        const payload = decodeTokenPayload(token);
+        if (payload) {
+          setUser({
+            id: payload.id,
+            email: payload.email,
+            name: payload.email.split("@")[0],
+            role: payload.role,
+          });
+        }
       } catch {
-        // No valid session - clear any stale tokens
         clearAccessToken();
       } finally {
         setIsLoading(false);

@@ -5,22 +5,33 @@ import {
   generateAccessToken,
   generateRefreshToken,
 } from "@/lib/auth/tokens";
+import { handleOptions, jsonWithCors } from "@/middleware/cors";
 
 const isProduction = process.env.NODE_ENV === "production";
 
+/**
+ * Handle OPTIONS preflight request
+ */
+export async function OPTIONS(req: NextRequest) {
+  return handleOptions(req);
+}
+
 export async function POST(req: NextRequest) {
+  const origin = req.headers.get("origin");
+  
   try {
     // Get refresh token from cookie
     const refreshToken = req.cookies.get("refreshToken")?.value;
 
     if (!refreshToken) {
-      return NextResponse.json(
+      return jsonWithCors(
         {
           success: false,
           message: "Refresh token missing",
           error: { code: "AUTH_ERROR" },
         },
-        { status: 401 }
+        { status: 401 },
+        origin
       );
     }
 
@@ -30,13 +41,14 @@ export async function POST(req: NextRequest) {
       decoded = verifyRefreshToken(refreshToken);
     } catch (error: any) {
       // Clear invalid refresh token cookie
-      const response = NextResponse.json(
+      const response = jsonWithCors(
         {
           success: false,
           message: error.code === "TOKEN_EXPIRED" ? "Session expired" : "Invalid session",
           error: { code: "AUTH_ERROR" },
         },
-        { status: 401 }
+        { status: 401 },
+        origin
       );
       
       response.cookies.delete("refreshToken");
@@ -44,23 +56,40 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify user still exists
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-      },
-    });
+    let user;
+    try {
+      user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+        },
+      });
+    } catch (dbError) {
+      console.error("[Database] User lookup error:", dbError);
+      const response = jsonWithCors(
+        {
+          success: false,
+          message: "Database error",
+          error: { code: "INTERNAL_ERROR" },
+        },
+        { status: 500 },
+        origin
+      );
+      response.cookies.delete("refreshToken");
+      return response;
+    }
 
     if (!user) {
-      const response = NextResponse.json(
+      const response = jsonWithCors(
         {
           success: false,
           message: "User not found",
           error: { code: "AUTH_ERROR" },
         },
-        { status: 401 }
+        { status: 401 },
+        origin
       );
       
       response.cookies.delete("refreshToken");
@@ -81,7 +110,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Create response with new access token
-    const response = NextResponse.json(
+    const response = jsonWithCors(
       {
         success: true,
         message: "Token refreshed successfully",
@@ -89,7 +118,8 @@ export async function POST(req: NextRequest) {
           accessToken: newAccessToken,
         },
       },
-      { status: 200 }
+      { status: 200 },
+      origin
     );
 
     // Set new refresh token (rotate)
@@ -107,15 +137,23 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
-    console.error("Token refresh error:", err);
+    const errorStack = err instanceof Error ? err.stack : undefined;
+    console.error("Token refresh error:", errorMessage);
+    if (errorStack) {
+      console.error("Stack trace:", errorStack);
+    }
+    if (err && typeof err === "object" && "code" in err) {
+      console.error("Error code:", (err as any).code);
+    }
     
-    const response = NextResponse.json(
+    const response = jsonWithCors(
       {
         success: false,
         message: "Token refresh failed",
         error: { code: "INTERNAL_ERROR" },
       },
-      { status: 500 }
+      { status: 500 },
+      origin
     );
     
     // Clear refresh token on error

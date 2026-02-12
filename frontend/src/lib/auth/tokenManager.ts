@@ -84,16 +84,34 @@ export async function refreshAccessToken(): Promise<string> {
  */
 export function isTokenExpired(token: string | null): boolean {
   if (!token) return true;
-  
+
   try {
     // Decode without verification (client-side only)
     const payload = JSON.parse(atob(token.split(".")[1]));
     const exp = payload.exp * 1000; // Convert to milliseconds
     const now = Date.now();
-    
+
     // Consider expired if less than 1 minute remaining
     return exp - now < 60 * 1000;
   } catch {
     return true;
   }
+}
+
+/**
+ * Decode JWT payload (for UI display only; backend always verifies).
+ * Returns { id, email, role } when token is valid.
+ */
+export function decodeTokenPayload(token: string | null): { id: number; email: string; role: string } | null {
+  if (!token) return null;
+
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (payload.id != null && payload.email != null && payload.role != null) {
+      return { id: payload.id, email: payload.email, role: payload.role };
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
 }

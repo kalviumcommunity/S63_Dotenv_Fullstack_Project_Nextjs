@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import { motion } from "framer-motion";
 import { safeVariants, microTransitions } from "@/lib/animations";
 import AnimatedButton from "@/components/shared/animations/AnimatedButton";
+import PermissionGate from "@/components/rbac/PermissionGate";
 
 const progressSchema = z.object({
   percentage: z.number().min(0).max(100),
@@ -71,13 +72,14 @@ export default function ProgressUpdateForm({
   };
 
   return (
-    <motion.div
-      variants={safeVariants.slideUp}
-      initial="initial"
-      animate="animate"
-      className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-    >
-      <h3 className="mb-4 text-lg font-semibold text-gray-900">Update Progress</h3>
+    <PermissionGate permission="update">
+      <motion.div
+        variants={safeVariants.slideUp}
+        initial="initial"
+        animate="animate"
+        className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+      >
+        <h3 className="mb-4 text-lg font-semibold text-gray-900">Update Progress</h3>
 
       {error && (
         <motion.div
@@ -133,5 +135,6 @@ export default function ProgressUpdateForm({
         </AnimatedButton>
       </form>
     </motion.div>
+    </PermissionGate>
   );
 }

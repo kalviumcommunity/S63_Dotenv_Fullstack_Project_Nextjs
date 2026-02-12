@@ -1,36 +1,38 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/database";
-import { jsonWithCors } from "@/middleware/cors";
-import { verifyToken, extractTokenFromHeader } from "@/services/auth";
+import { jsonWithCors, handleOptions } from "@/middleware/cors";
+import { requirePermission, AuthenticatedRequest } from "@/lib/rbac/middleware";
+import { logAccessGranted } from "@/lib/rbac/logging";
 
 /**
- * GET /api/users/officers - Get all officers (admin only)
+ * Handle OPTIONS preflight request
+ */
+export async function OPTIONS(req: NextRequest) {
+  return handleOptions(req);
+}
+
+/**
+ * GET /api/users/officers - Get all officers
+ * Requires: read permission (admin only in practice)
  */
 export async function GET(req: NextRequest) {
-  try {
-    const token = extractTokenFromHeader(req.headers.get("authorization"));
-    if (!token) {
-      return jsonWithCors({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
-
-    const payload = verifyToken(token);
-    if (!payload) {
-      return jsonWithCors({ success: false, message: "Invalid token" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: payload.id },
-      select: { id: true, role: true },
-    });
-
-    if (!user) {
-      return jsonWithCors({ success: false, message: "User not found" }, { status: 401 });
-    }
-
-    // Only admins can list officers
-    if (user.role !== "admin") {
-      return jsonWithCors({ success: false, message: "Forbidden" }, { status: 403 });
-    }
+  // Check permission
+  const authCheck = await requirePermission("read", "/api/users/officers")(req);
+  if (authCheck instanceof NextRequest) {
+    const authReq = authCheck as AuthenticatedRequest;
+    const user = authReq.user!;
+    
+    // Log access granted
+    logAccessGranted(
+      user.id,
+      user.email,
+      user.role,
+      "read",
+      "/api/users/officers",
+      "GET"
+    );
+    
+    try {
 
     const officers = await prisma.user.findMany({
       where: { role: "officer" },
@@ -54,18 +56,34 @@ export async function GET(req: NextRequest) {
       orderBy: { name: "asc" },
     });
 
-    return jsonWithCors({
-      success: true,
-      data: officers.map((o) => ({
-        id: o.id,
-        name: o.name,
-        email: o.email,
-        createdAt: o.createdAt.toISOString(),
-        activeAssignments: o._count.assignedIssues,
-      })),
-    });
-  } catch (err) {
-    console.error("GET /api/users/officers:", err);
-    return jsonWithCors({ success: false, message: "Failed to fetch officers" }, { status: 500 });
+      const origin = req.headers.get("origin");
+      return jsonWithCors({
+        success: true,
+        data: officers.map((o) => ({
+          id: o.id,
+          name: o.name,
+          email: o.email,
+          createdAt: o.createdAt.toISOString(),
+          activeAssignments: o._count.assignedIssues,
+        })),
+      }, undefined, origin);
+    } catch (err) {
+      console.error("GET /api/users/officers:", err);
+      const origin = req.headers.get("origin");
+      return jsonWithCors({ success: false, message: "Failed to fetch officers" }, { status: 500 }, origin);
+    }
   }
+  
+  // Permission denied - add CORS headers to error response
+  const origin = req.headers.get("origin");
+  const errorResponse = authCheck as NextResponse;
+  const corsHeaders = new Headers(errorResponse.headers);
+  if (origin) {
+    corsHeaders.set("Access-Control-Allow-Origin", origin);
+    corsHeaders.set("Access-Control-Allow-Credentials", "true");
+  }
+  return new NextResponse(errorResponse.body, {
+    status: errorResponse.status,
+    headers: corsHeaders,
+  });
 }
