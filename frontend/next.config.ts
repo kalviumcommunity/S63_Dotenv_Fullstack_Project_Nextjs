@@ -1,21 +1,31 @@
 import type { NextConfig } from "next";
+import {
+  getCspHeader,
+  getHstsHeader,
+  getPermissionsPolicyHeader,
+} from "./src/lib/security/headers";
+
+function getSecurityHeaders() {
+  const headers: { key: string; value: string }[] = [
+    { key: "X-Content-Type-Options", value: "nosniff" },
+    { key: "X-Frame-Options", value: "DENY" },
+    { key: "X-XSS-Protection", value: "1; mode=block" },
+    { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+    { key: "Content-Security-Policy", value: getCspHeader() },
+    { key: "Permissions-Policy", value: getPermissionsPolicyHeader() },
+  ];
+
+  const hsts = getHstsHeader();
+  if (hsts) headers.push({ key: "Strict-Transport-Security", value: hsts });
+
+  return headers;
+}
 
 const nextConfig: NextConfig = {
-  // Turbopack configuration (Next.js 16+)
   turbopack: {},
-  
+
   async headers() {
-    const securityHeaders = [
-      { key: "X-Content-Type-Options", value: "nosniff" },
-      { key: "X-Frame-Options", value: "DENY" },
-      { key: "X-XSS-Protection", value: "1; mode=block" },
-      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-      {
-        key: "Content-Security-Policy",
-        value:
-          "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'",
-      },
-    ];
+    const securityHeaders = getSecurityHeaders();
     return [
       { source: "/:path*", headers: securityHeaders },
       {

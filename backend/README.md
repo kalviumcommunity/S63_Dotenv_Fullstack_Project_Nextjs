@@ -199,8 +199,74 @@ Centralized in `src/lib/security/sanitize.ts`:
 
 - Rate limiting to reduce brute-force and DoS
 - WAF (Web Application Firewall) for additional layer
-- Stricter CSP (e.g. remove `unsafe-inline` where possible)
+- CSP nonces (Next.js) to remove `unsafe-inline` where possible
 - Content-Security-Policy-Report-Only for monitoring
+
+## HTTPS & Secure Headers
+
+The backend enforces HTTPS and sets security headers for production deployments.
+
+### 1. HTTPS Enforcement
+
+- **Production only**: HTTP requests are redirected (308) to HTTPS.
+- **Proxy-aware**: Uses `X-Forwarded-Proto` when behind load balancers (Vercel, nginx, Cloudflare).
+- **Localhost exempt**: No redirect on `localhost` or `127.0.0.1`.
+- Path and query parameters are preserved in the redirect.
+
+### 2. HSTS (HTTP Strict Transport Security)
+
+- **Header**: `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`
+- **Production only**: Not set in development (avoids localhost issues).
+- **1 year max-age**: Meets browser preload list requirements.
+- **includeSubDomains**: Applies to all subdomains.
+- **preload**: Eligible for browser preload lists.
+
+### 3. Content Security Policy (CSP)
+
+- `default-src 'self'`
+- `script-src 'self' 'unsafe-inline'`
+- `style-src 'self' 'unsafe-inline'`
+- `img-src 'self' data: https:`
+- `connect-src 'self' https:`
+- `frame-ancestors 'none'` (clickjacking protection)
+- `object-src 'none'`
+
+### 4. CORS Configuration
+
+- **Never `*` in production**: `CORS_ORIGIN` must be a specific trusted origin (e.g. `https://app.example.com`).
+- **Multiple origins**: Use `CORS_ORIGINS` (comma-separated) for multiple frontends.
+- **OPTIONS preflight**: Explicitly allowed methods and headers.
+- **Credentials**: `Access-Control-Allow-Credentials: true` when using cookies/auth.
+
+**Production `.env` example:**
+```env
+CORS_ORIGIN=https://app.example.com
+CORS_ORIGINS=https://app.example.com,https://admin.example.com
+```
+
+### 5. Additional Security Headers
+
+| Header | Value | Purpose |
+|--------|-------|---------|
+| X-Content-Type-Options | nosniff | Prevents MIME sniffing |
+| X-Frame-Options | DENY | Prevents clickjacking |
+| X-XSS-Protection | 1; mode=block | Legacy XSS filter (defense in depth) |
+| Referrer-Policy | strict-origin-when-cross-origin | Limits referrer leakage |
+| Permissions-Policy | camera=(), microphone=(), ... | Restricts browser features |
+
+### Threats Mitigated
+
+- **MITM**: HTTPS redirect + HSTS prevents downgrade attacks.
+- **XSS**: CSP limits script sources; XSS-Protection adds defense in depth.
+- **Clickjacking**: `frame-ancestors 'none'` and `X-Frame-Options: DENY`.
+- **Data exfiltration**: CSP `connect-src` restricts outbound requests.
+- **Cross-origin abuse**: CORS restricts API access to trusted origins.
+
+### Testing
+
+1. **HTTPS redirect**: `curl -I http://your-domain.com` → expect `308` to `https://`
+2. **HSTS**: `curl -I https://your-domain.com` → expect `Strict-Transport-Security`
+3. **CORS**: Inspect `Access-Control-Allow-Origin` in responses; must match your frontend origin.
 
 ## Least-Privilege Principle
 

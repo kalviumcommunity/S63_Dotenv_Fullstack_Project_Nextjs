@@ -74,7 +74,7 @@ export default function FeedPage() {
 
           const issuesWithProgress = await Promise.all(progressPromises);
           if (!cancelled) {
-            setIssues(issuesWithProgress);
+            setIssues(issuesWithProgress as IssueCardIssue[]);
           }
         } else if (!cancelled) {
           setIssues(list);

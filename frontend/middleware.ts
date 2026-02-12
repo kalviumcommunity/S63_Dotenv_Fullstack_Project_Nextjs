@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { sendError } from "@/lib/config/responses";
 import { ERROR_CODES } from "@/lib/config/errorCodes";
+import {
+  shouldRedirectToHttps,
+  buildHttpsRedirectUrl,
+  applySecurityHeaders,
+} from "@/lib/security/headers";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -11,18 +16,33 @@ if (!JWT_SECRET) {
 
 const secretKey = new TextEncoder().encode(JWT_SECRET);
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+function withSecurityHeaders(res: NextResponse): NextResponse {
+  applySecurityHeaders(res.headers);
+  return res;
+}
 
+export async function middleware(request: NextRequest) {
+  // Step 1: HTTPS redirect (production only)
+  if (shouldRedirectToHttps(request)) {
+    const url = buildHttpsRedirectUrl(request);
+    return NextResponse.redirect(url, 308);
+  }
+
+  const { pathname } = request.nextUrl;
+  const isAuthRoute = pathname.startsWith("/api/users") || pathname.startsWith("/api/admin");
+
+  if (!isAuthRoute) {
+    const res = NextResponse.next();
+    return withSecurityHeaders(res);
+  }
+
+  // Auth check for /api/users and /api/admin
   const authHeader =
-    request.headers.get("authorization") ??
-    request.headers.get("Authorization");
+    request.headers.get("authorization") ?? request.headers.get("Authorization");
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return sendError(
-      "Authentication token missing",
-      ERROR_CODES.VALIDATION_ERROR,
-      401
+    return withSecurityHeaders(
+      sendError("Authentication token missing", ERROR_CODES.VALIDATION_ERROR, 401)
     );
   }
 
@@ -30,42 +50,37 @@ export async function middleware(request: NextRequest) {
 
   try {
     const { payload } = await jwtVerify(token, secretKey);
-
     const role = payload.role as string | undefined;
     const email = payload.email as string | undefined;
 
     if (pathname.startsWith("/api/admin") && role !== "admin") {
-      return sendError(
-        "Forbidden: admin access required",
-        ERROR_CODES.VALIDATION_ERROR,
-        403
+      return withSecurityHeaders(
+        sendError("Forbidden: admin access required", ERROR_CODES.VALIDATION_ERROR, 403)
       );
     }
 
     const requestHeaders = new Headers(request.headers);
+    if (email) requestHeaders.set("x-user-email", email);
+    if (role) requestHeaders.set("x-user-role", role);
 
-    if (email) {
-      requestHeaders.set("x-user-email", email);
-    }
-    if (role) {
-      requestHeaders.set("x-user-role", role);
-    }
-
-    return NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
+    const res = NextResponse.next({
+      request: { headers: requestHeaders },
     });
+    return withSecurityHeaders(res);
   } catch {
-    return sendError(
-      "Invalid or expired token",
-      ERROR_CODES.INTERNAL_ERROR,
-      403
+    return withSecurityHeaders(
+      sendError("Invalid or expired token", ERROR_CODES.INTERNAL_ERROR, 403)
     );
   }
 }
 
 export const config = {
-  matcher: ["/api/users", "/api/users/:path*", "/api/admin", "/api/admin/:path*"],
+  matcher: [
+    /*
+     * Match all paths except static files and internal Next.js routes.
+     * Enables HTTPS redirect and security headers for pages and API routes.
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+  ],
 };
 

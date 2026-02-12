@@ -1,54 +1,63 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  shouldRedirectToHttps,
+  buildHttpsRedirectUrl,
+  applySecurityHeaders,
+} from "./src/lib/security/headers";
 
+const isProduction = process.env.NODE_ENV === "production";
 const ALLOWED_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || ALLOWED_ORIGIN).split(",").map((o) => o.trim());
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || ALLOWED_ORIGIN)
+  .split(",")
+  .map((o) => o.trim())
+  .filter((o) => o && o !== "*");
+
+/** Production: CORS_ORIGIN must be a specific origin, never '*' */
+if (isProduction && (!ALLOWED_ORIGIN || ALLOWED_ORIGIN === "*" || ALLOWED_ORIGINS.length === 0)) {
+  console.error(
+    "[CORS] CORS_ORIGIN must be set to a trusted origin in production (e.g. https://app.example.com). Never use '*'."
+  );
+}
 
 /**
- * Get allowed origin for CORS
+ * Get allowed origin for CORS. Never returns '*' in production.
  */
 function getAllowedOrigin(requestOrigin: string | null): string {
   if (!requestOrigin) return ALLOWED_ORIGIN;
-
-  if (ALLOWED_ORIGINS.includes(requestOrigin)) {
-    return requestOrigin;
-  }
-
+  if (ALLOWED_ORIGINS.includes(requestOrigin)) return requestOrigin;
   return ALLOWED_ORIGIN;
 }
 
-export function middleware(req: NextRequest) {
-  const origin = req.headers.get("origin");
-  const allowedOrigin = getAllowedOrigin(origin);
-  
-  // Handle OPTIONS preflight request
-  if (req.method === "OPTIONS") {
-    const res = new NextResponse(null, { status: 204 });
-    res.headers.set("Access-Control-Allow-Origin", allowedOrigin);
-    res.headers.set("Access-Control-Allow-Credentials", "true");
-    res.headers.set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
-    res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-    res.headers.set("Access-Control-Max-Age", "86400");
-    return res;
-  }
-
-  // Add CORS and security headers to all responses
-  const res = NextResponse.next();
+function setCorsHeaders(res: NextResponse, allowedOrigin: string): void {
   res.headers.set("Access-Control-Allow-Origin", allowedOrigin);
   res.headers.set("Access-Control-Allow-Credentials", "true");
   res.headers.set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
   res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   res.headers.set("Access-Control-Max-Age", "86400");
   res.headers.set("Access-Control-Expose-Headers", "Set-Cookie");
+}
 
-  // OWASP security headers
-  res.headers.set("X-Content-Type-Options", "nosniff");
-  res.headers.set("X-Frame-Options", "DENY");
-  res.headers.set("X-XSS-Protection", "1; mode=block");
-  res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.headers.set(
-    "Content-Security-Policy",
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'"
-  );
+export function middleware(req: NextRequest) {
+  // Step 1: HTTPS redirect (production only, respects X-Forwarded-Proto)
+  if (shouldRedirectToHttps(req)) {
+    const url = buildHttpsRedirectUrl(req);
+    return NextResponse.redirect(url, 308);
+  }
+
+  const origin = req.headers.get("origin");
+  const allowedOrigin = getAllowedOrigin(origin);
+
+  // Handle OPTIONS preflight
+  if (req.method === "OPTIONS") {
+    const res = new NextResponse(null, { status: 204 });
+    setCorsHeaders(res, allowedOrigin);
+    applySecurityHeaders(res.headers);
+    return res;
+  }
+
+  const res = NextResponse.next();
+  setCorsHeaders(res, allowedOrigin);
+  applySecurityHeaders(res.headers);
 
   return res;
 }

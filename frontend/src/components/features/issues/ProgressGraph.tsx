@@ -61,9 +61,6 @@ export default function ProgressGraph({
   }
 
   const maxPercentage = Math.max(...dataPoints.map((p) => p.percentage), 100);
-  const minDate = dataPoints[0]?.date || new Date();
-  const maxDate = dataPoints[dataPoints.length - 1]?.date || new Date();
-  const dateRange = maxDate.getTime() - minDate.getTime() || 1;
 
   return (
     <div className={className}>
