@@ -13,6 +13,7 @@ import { requirePermission, AuthenticatedRequest } from "@/lib/rbac/middleware";
 import { extractTokenFromHeader } from "@/lib/auth/tokens";
 import { logAccessGranted } from "@/lib/rbac/logging";
 import { AppRole } from "@/lib/rbac/permissions";
+import { sanitizeField } from "@/lib/security";
 
 const ANONYMOUS_EMAIL = "anonymous@civictrack.local";
 
@@ -144,13 +145,13 @@ export async function POST(req: NextRequest) {
   // If no token, proceed with anonymous creation (user will be null)
   
   const origin = req.headers.get("origin");
-  
+
   try {
     const body = await req.json();
-    const title = typeof body.title === "string" ? body.title.trim() : "";
+    const rawTitle = typeof body.title === "string" ? body.title.trim() : "";
     const category = body.category;
-    
-    if (!title) {
+
+    if (!rawTitle) {
       return jsonWithCors(
         { success: false, message: "Title is required" },
         { status: 400 },
@@ -160,6 +161,29 @@ export async function POST(req: NextRequest) {
     if (!category || !Object.values(IssueCategory).includes(category)) {
       return jsonWithCors(
         { success: false, message: "Valid category is required (GARBAGE, WATER_SUPPLY, ROAD_DAMAGE, STREETLIGHT, OTHER)" },
+        { status: 400 },
+        origin
+      );
+    }
+
+    const rawDescription = typeof body.description === "string" ? body.description.trim() : null;
+    let title: string;
+    let description: string | null = null;
+    try {
+      title = sanitizeField(rawTitle, "title");
+      if (rawDescription) {
+        description = sanitizeField(rawDescription, "description");
+      }
+    } catch (sanitizeErr) {
+      return jsonWithCors(
+        { success: false, message: "Invalid input: disallowed content detected", error: { code: "VALIDATION_ERROR" } },
+        { status: 400 },
+        origin
+      );
+    }
+    if (!title) {
+      return jsonWithCors(
+        { success: false, message: "Title is required" },
         { status: 400 },
         origin
       );
@@ -176,7 +200,6 @@ export async function POST(req: NextRequest) {
     }
 
     const isAnonymous = Boolean(body.isAnonymous);
-    const description = typeof body.description === "string" ? body.description.trim() : null;
     const latitude = body.latitude != null ? Number(body.latitude) : null;
     const longitude = body.longitude != null ? Number(body.longitude) : null;
 

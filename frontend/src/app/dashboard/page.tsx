@@ -39,7 +39,7 @@ interface IssueWithProgress {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  useAuth();
   const [issues, setIssues] = useState<IssueWithProgress[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -26,6 +26,7 @@
     "react-leaflet": "^5.0.0",
     "swr": "^2.4.0",
     "workbox-window": "^7.4.0",
+    "xss": "^1.0.15",
     "zod": "^4.3.6"
   },
   "devDependencies": {

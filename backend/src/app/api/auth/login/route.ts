@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import { prisma } from "@/lib/database";
 import { generateAccessToken, generateRefreshToken } from "@/lib/auth/tokens";
 import { handleOptions, jsonWithCors } from "@/middleware/cors";
+import { sanitizeField, getSafeErrorMessage } from "@/lib/security";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -31,8 +32,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    let sanitizedEmail: string;
+    try {
+      sanitizedEmail = sanitizeField(email, "email");
+    } catch {
+      return jsonWithCors(
+        {
+          success: false,
+          message: "Invalid input",
+          error: { code: "VALIDATION_ERROR" },
+        },
+        { status: 400 },
+        origin
+      );
+    }
+
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: sanitizedEmail },
       select: {
         id: true,
         name: true,
@@ -124,13 +140,12 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Unknown error";
     console.error("Login error:", err);
     return jsonWithCors(
       {
         success: false,
         message: "Login failed",
-        error: { code: "INTERNAL_ERROR", details: errorMessage },
+        error: { code: "INTERNAL_ERROR", details: getSafeErrorMessage(err) },
       },
       { status: 500 },
       origin

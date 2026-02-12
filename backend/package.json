@@ -19,7 +19,8 @@
     "jsonwebtoken": "^9.0.3",
     "next": "16.1.5",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "xss": "^1.0.15"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",

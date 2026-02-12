@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { fetchIssues } from "@/lib/api";
 import { getCategoryLabel, formatSlaDeadline } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import AnimatedCard from "@/components/shared/animations/AnimatedCard";
-import { safeVariants, microTransitions } from "@/lib/animations";
+import { safeVariants } from "@/lib/animations";
 import type { IssueCardIssue } from "@/components/features/issues/IssueCard";
 import ProtectedRoute from "@/components/common/layout/ProtectedRoute";
 
@@ -59,7 +59,7 @@ export default function OfficerDashboardPage() {
         const assignedIssues = list.filter((issue) => {
           // Check if issue has assignedTo field and it matches current user
           if (issue.assignedTo && typeof issue.assignedTo === 'object' && 'id' in issue.assignedTo) {
-            return issue.assignedTo.id === user.id;
+            return issue.assignedTo.id === user?.id;
           }
           // Fallback: check if status is ASSIGNED or IN_PROGRESS (assuming they're assigned)
           return issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS";
@@ -252,7 +252,7 @@ export default function OfficerDashboardPage() {
               </Link>
               <p className="mt-1 text-xs text-[var(--muted)]">
                 {getCategoryLabel(priorityIssue.category)} ·{" "}
-                {formatSlaDeadline(priorityIssue.slaDeadline).text}
+                {priorityIssue.slaDeadline ? formatSlaDeadline(priorityIssue.slaDeadline).text : "—"}
               </p>
             </div>
             {aiScores[String(priorityIssue.id)] && (
