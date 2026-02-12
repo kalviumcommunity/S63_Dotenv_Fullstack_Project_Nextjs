@@ -48,9 +48,21 @@ export async function deleteIssue(id: string) {
   return result;
 }
 
+interface ApiResponse<T> {
+  success?: boolean;
+  data?: T;
+}
+
 export async function fetchIssueProgress(id: string) {
   try {
-    const result = await apiGet(`/api/issues/${id}/progress`, { skipAuth: true });
+    const result = await apiGet<
+      ApiResponse<{
+        progressPercentage?: number;
+        assignedTo?: unknown;
+        expectedCompletionDate?: string | null;
+        progressUpdates?: unknown[];
+      }>
+    >(`/api/issues/${id}/progress`, { skipAuth: true });
     return result?.success ? result.data : null;
   } catch {
     return null; // Gracefully fail - progress is optional
@@ -58,16 +70,16 @@ export async function fetchIssueProgress(id: string) {
 }
 
 export async function fetchOfficers() {
-  const result = await apiGet("/api/users/officers");
-  return result?.success ? result.data : [];
+  const result = await apiGet<ApiResponse<unknown[]>>("/api/users/officers");
+  return (result?.success ? result.data : []) ?? [];
 }
 
 export async function fetchUnassignedIssues() {
-  const result = await apiGet("/api/issues/unassigned");
-  return result?.success ? result.data : [];
+  const result = await apiGet<ApiResponse<unknown[]>>("/api/issues/unassigned");
+  return (result?.success ? result.data : []) ?? [];
 }
 
-export async function getAiAssignmentSuggestion(issueId: number, officers: any[], issue: any) {
-  const result = await apiPost("/api/ai/assign", { issueId, officers, issue });
+export async function getAiAssignmentSuggestion(issueId: number, officers: unknown[], issue: unknown) {
+  const result = await apiPost<ApiResponse<unknown>>("/api/ai/assign", { issueId, officers, issue });
   return result?.success ? result.data : null;
 }

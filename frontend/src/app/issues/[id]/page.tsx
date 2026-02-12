@@ -108,8 +108,8 @@ export default function IssueDetailPage() {
         setProgressData({
           progressPercentage: data.progressPercentage ?? 0,
           expectedCompletionDate: data.expectedCompletionDate ?? null,
-          assignedTo: data.assignedTo ?? null,
-          progressUpdates: data.progressUpdates ?? [],
+          assignedTo: (data.assignedTo ?? null) as AssignedWorker | null,
+          progressUpdates: (data.progressUpdates ?? []) as ProgressUpdate[],
         });
       }
     } catch (err) {
@@ -132,7 +132,7 @@ export default function IssueDetailPage() {
     try {
       setLoadingOfficers(true);
       const officersData = await fetchOfficers();
-      setOfficers(officersData);
+      setOfficers(officersData as Officer[]);
     } catch (err) {
       console.error("Failed to load officers:", err);
     } finally {

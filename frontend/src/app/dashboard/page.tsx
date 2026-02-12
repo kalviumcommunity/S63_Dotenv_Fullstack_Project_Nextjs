@@ -86,7 +86,7 @@ export default function DashboardPage() {
           })
         );
 
-        if (!cancelled) setIssues(issuesWithProgress);
+        if (!cancelled) setIssues(issuesWithProgress as IssueWithProgress[]);
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "Failed to load issues.");
@@ -117,13 +117,13 @@ export default function DashboardPage() {
       setIssues((prev) =>
         prev.map((issue) =>
           issue.id === issueId
-            ? {
+            ? ({
                 ...issue,
                 progressPercentage: progressData?.progressPercentage ?? issue.progressPercentage ?? 0,
                 expectedCompletionDate: progressData?.expectedCompletionDate ?? issue.expectedCompletionDate ?? null,
-                assignedTo: progressData?.assignedTo ?? issue.assignedTo ?? null,
-                progressUpdates: progressData?.progressUpdates ?? issue.progressUpdates ?? [],
-              }
+                assignedTo: (progressData?.assignedTo ?? issue.assignedTo) as IssueWithProgress["assignedTo"],
+                progressUpdates: (progressData?.progressUpdates ?? issue.progressUpdates ?? []) as IssueWithProgress["progressUpdates"],
+              } as IssueWithProgress)
             : issue
         )
       );

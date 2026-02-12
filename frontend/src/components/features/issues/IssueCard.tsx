@@ -37,7 +37,7 @@ export default function IssueCard({ issue }: { issue: IssueCardIssue }) {
     progressPercentage: number;
     assignedTo: IssueCardIssue["assignedTo"];
   } | null>(null);
-  const [loadingProgress, setLoadingProgress] = useState(false);
+  const [, setLoadingProgress] = useState(false);
 
   const computedOverdue =
     typeof issue.isOverdue === "boolean"
@@ -67,7 +67,7 @@ export default function IssueCard({ issue }: { issue: IssueCardIssue }) {
         if (!cancelled && data) {
           setProgressData({
             progressPercentage: data.progressPercentage ?? 0,
-            assignedTo: data.assignedTo ?? null,
+            assignedTo: (data.assignedTo ?? null) as IssueCardIssue["assignedTo"],
           });
         }
       } catch (err) {

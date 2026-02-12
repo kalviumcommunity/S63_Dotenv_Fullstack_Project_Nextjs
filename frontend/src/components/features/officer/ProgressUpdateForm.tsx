@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { motion } from "framer-motion";
-import { safeVariants, microTransitions } from "@/lib/animations";
+import { safeVariants } from "@/lib/animations";
 import AnimatedButton from "@/components/shared/animations/AnimatedButton";
 import PermissionGate from "@/components/rbac/PermissionGate";
 
@@ -52,7 +52,7 @@ export default function ProgressUpdateForm({
 
     try {
       const { apiPost } = await import("@/lib/api/client");
-      const result = await apiPost(`/api/issues/${issueId}/progress`, data);
+      await apiPost(`/api/issues/${issueId}/progress`, data);
 
       toast.dismiss(loadingToast);
       toast.success(`Progress updated to ${data.percentage}%`);
@@ -62,9 +62,8 @@ export default function ProgressUpdateForm({
       if (!error) {
         const errorMessage = err instanceof Error ? err.message : "Failed to update progress";
         setError(errorMessage);
-        if (!toast.isActive(loadingToast)) {
-          toast.error(errorMessage);
-        }
+        toast.dismiss(loadingToast);
+        toast.error(errorMessage);
       }
     } finally {
       setIsSubmitting(false);

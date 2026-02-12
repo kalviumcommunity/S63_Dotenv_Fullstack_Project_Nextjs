@@ -18,38 +18,38 @@ interface InputQualityIndicatorProps {
 export default function InputQualityIndicator({
   text,
   minLength = 20,
-  hints = [],
+  hints: propHints = [],
 }: InputQualityIndicatorProps) {
   const [qualityHints, setQualityHints] = useState<QualityHint[]>([]);
 
   useEffect(() => {
-    const hints: QualityHint[] = [];
+    const result: QualityHint[] = [];
 
     if (text.length < minLength) {
-      hints.push({
+      result.push({
         type: "missing",
         message: `Add ${minLength - text.length} more characters for better clarity`,
       });
     }
 
-    if (hints.length > 0) {
-      hints.forEach((hint) => {
-        hints.push({
+    if (propHints.length > 0) {
+      propHints.forEach((hint) => {
+        result.push({
           type: "unclear",
           message: hint,
         });
       });
     }
 
-    if (text.length >= minLength && hints.length === 0) {
-      hints.push({
+    if (text.length >= minLength && result.length === 0) {
+      result.push({
         type: "good",
         message: "Description looks clear and detailed",
       });
     }
 
-    setQualityHints(hints);
-  }, [text, minLength, hints]);
+    setQualityHints(result);
+  }, [text, minLength, propHints]);
 
   if (qualityHints.length === 0) {
     return null;

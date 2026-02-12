@@ -267,6 +267,48 @@ function MyComponent() {
 
 ---
 
+## 🔒 HTTPS & Secure Headers
+
+The frontend enforces HTTPS and applies security headers for production.
+
+### 1. HTTPS Enforcement
+
+- **Production only**: HTTP requests redirect (308) to HTTPS.
+- **Proxy-aware**: Uses `X-Forwarded-Proto` (Vercel, nginx, etc.).
+- **Localhost exempt**: No redirect in development.
+
+### 2. HSTS
+
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`
+- Production only; not applied on localhost.
+
+### 3. Content Security Policy (CSP)
+
+- **Production**: `default-src 'self'`, `script-src 'self' 'unsafe-inline'`, `frame-ancestors 'none'`, `object-src 'none'`.
+- **Development**: Allows `unsafe-eval` and `ws:` for HMR and dev tools.
+- `connect-src` includes `NEXT_PUBLIC_API_URL` if set.
+
+### 4. Additional Headers
+
+- **X-Content-Type-Options**: nosniff  
+- **X-Frame-Options**: DENY  
+- **Referrer-Policy**: strict-origin-when-cross-origin  
+- **Permissions-Policy**: Restricts camera, microphone, geolocation, etc.
+
+### Security vs Flexibility
+
+- Production: strict CSP, no `unsafe-eval`, HSTS enabled.
+- Development: Relaxed CSP for hot reload and dev tools.
+- `script-src 'unsafe-inline'`: Required for Next.js hydration; CSP nonces can remove this in future.
+
+### Verification
+
+1. **Production build**: `npm run build && npm start`
+2. **Headers**: `curl -I https://your-domain.com` — expect HSTS, CSP, X-Frame-Options.
+3. **HTTPS redirect**: `curl -I http://your-domain.com` — expect `308` to HTTPS.
+
+---
+
 ## ♿ Accessibility & Performance
 
 ### Accessibility

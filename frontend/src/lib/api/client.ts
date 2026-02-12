@@ -55,12 +55,13 @@ export async function apiRequest<T = unknown>(
   const { skipAuth = false, retryOn401 = true, ...fetchOptions } = options;
   
   // Build headers
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...fetchOptions.headers,
+    ...(fetchOptions.headers && typeof fetchOptions.headers === "object" && !(fetchOptions.headers instanceof Headers)
+      ? (fetchOptions.headers as Record<string, string>)
+      : {}),
   };
 
-  // Add access token if available and auth is not skipped
   if (!skipAuth) {
     const token = getAccessToken();
     if (token) {

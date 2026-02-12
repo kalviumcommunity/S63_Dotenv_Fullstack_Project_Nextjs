@@ -30,7 +30,7 @@ export default function AiFormAssistant({
 }: AiFormAssistantProps) {
   const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
 
   const analyzeText = useCallback(
     async (inputText: string) => {

@@ -71,8 +71,8 @@ export default function AdminIssuesPage() {
         fetchUnassignedIssues(),
         fetchOfficers(),
       ]);
-      setIssues(issuesData);
-      setOfficers(officersData);
+      setIssues((issuesData ?? []) as UnassignedIssue[]);
+      setOfficers((officersData ?? []) as Officer[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
@@ -85,12 +85,12 @@ export default function AdminIssuesPage() {
     setLoadingAi(true);
     setAiSuggestion(null);
     try {
-      const suggestion = await getAiAssignmentSuggestion(issue.id, officers, {
+      const suggestion = (await getAiAssignmentSuggestion(issue.id, officers, {
         title: issue.title,
         description: issue.description,
         category: issue.category,
         createdAt: issue.createdAt,
-      });
+      })) as AiSuggestion | null;
       setAiSuggestion(suggestion);
       if (suggestion?.recommendedOfficerId) {
         setSelectedOfficer(suggestion.recommendedOfficerId);
