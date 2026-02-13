@@ -29,6 +29,7 @@ The server will start on http://localhost:5000
 ## API Routes
 
 - `GET /api/health` - Health check
+- `GET /api/db/connection-test` - Secure DB connection test (returns `serverTime` only)
 - `GET /api/test-db` - Test database connection
 - `POST /api/auth/signup` - User signup
 - `POST /api/auth/login` - User login
@@ -339,6 +340,109 @@ The application will automatically detect that Redis is not configured and run w
 - **Risk**: A client might see list or single-issue data that is slightly out of date (up to one TTL window) if they do not trigger a mutation.
 - **Mitigation**: (1) Mutations (POST, PATCH) invalidate the relevant keys so the next GET sees fresh data. (2) TTL limits how long any stale entry can live. (3) If Redis fails, every request falls back to the database, so correctness is preserved.
 
+## Production Cloud PostgreSQL
+
+The backend supports managed PostgreSQL hosted on **AWS RDS** or **Azure Database for PostgreSQL**, with SSL, connection pooling, and production security.
+
+### Cloud Provider & Instance
+
+| Provider | Example Instance | Region Example |
+|----------|------------------|----------------|
+| **AWS RDS** | db.t3.micro (free tier) or db.t3.small | us-east-1 |
+| **Azure** | Basic B1ms or General Purpose D2s_v3 | East US |
+
+Configure your instance per provider docs. The application is provider-agnostic—it connects via standard PostgreSQL protocol.
+
+### Connection Setup
+
+1. **Obtain connection details** from your cloud console (host, port 5432, database name, username, password).
+2. **Set `DATABASE_URL`** in environment (never commit to git):
+
+```env
+# AWS RDS example (replace placeholders)
+DATABASE_URL=postgresql://admin:YOUR_PASSWORD@my-db.abc123.us-east-1.rds.amazonaws.com:5432/mydb?sslmode=require
+
+# Azure example (user format: username@servername)
+DATABASE_URL=postgresql://admin@myserver:YOUR_PASSWORD@myserver.postgres.database.azure.com:5432/mydb?sslmode=require
+```
+
+3. **Run migrations**:
+
+```bash
+npx prisma migrate deploy
+```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string. Must be set or app throws at startup. |
+| `DATABASE_CONNECTION_LIMIT` | No | Pool limit (default: 10). Use for serverless to prevent connection exhaustion. |
+
+### SSL and Security
+
+- **Production (`NODE_ENV=production`)**: SSL is **auto-appended** (`sslmode=require`) if not already in the URL.
+- **Explicit SSL**: Include `?sslmode=require` (or `verify-full` for stricter cert validation) in your URL.
+- **Credentials**: Never logged; never exposed in API responses or error messages.
+- **Connection test**: `GET /api/db/connection-test` returns only `serverTime`; errors return a generic message in production.
+
+### Network Configuration
+
+- **IP allowlisting**: Add your application server's outbound IP(s) to the database firewall. For serverless (e.g. Vercel), you may need to allow a range or use a connector.
+- **Private networking (recommended)**: Place the database in a private subnet (VPC/Private Link) and run the app in the same VPC. No public DB endpoint required.
+- **Public access**: Simpler to set up but less secure. Use only with IP allowlisting and strong passwords.
+
+### Backup Strategy
+
+- **Cloud-level backups**: Enable automated daily backups in RDS or Azure. Retention: 7–35 days typical.
+- **Point-in-time recovery (PITR)**: Both AWS and Azure support PITR for accidental deletion or corruption.
+- **Application layer**: No backup logic in code; rely on provider-managed backups and replication.
+
+### Public vs Private DB Access
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **Private (VPC)** | Most secure, no public exposure | Requires app and DB in same network |
+| **Public + IP allowlist** | Simpler, works with serverless | DB has a public endpoint; must maintain allowlist |
+
+**Recommendation**: Use private networking when possible (e.g. app on EC2/ECS in same VPC as RDS).
+
+### Future Scaling (Replicas, Failover)
+
+- **Read replicas**: Architecture supports a separate read-only URL. Configure `directUrl` in Prisma for migrations and use a pooler URL for reads.
+- **Failover**: Cloud providers handle automatic failover. Ensure `DATABASE_URL` points to the primary; update DNS/connection string if manual failover is needed.
+- **Horizontal scaling**: Application layer is stateless; scale app instances independently. Connection pooling (`connection_limit`) prevents DB overload.
+
+### Connection Test Evidence
+
+After deployment, verify connectivity:
+
+```bash
+curl https://your-api.example.com/api/db/connection-test
+```
+
+**Success response (200):**
+
+```json
+{
+  "ok": true,
+  "serverTime": "2025-02-13T12:00:00.000Z"
+}
+```
+
+**Failure response (503):**
+
+```json
+{
+  "ok": false,
+  "error": "Database connection failed"
+}
+```
+
+In production, error messages are generic to avoid leaking hostnames or credentials.
+
+---
+
 ## Environment Variables
 
 Create a `.env` file with:
@@ -353,6 +457,11 @@ Optional (cache TTL in seconds; defaults in code if unset):
 ```
 CACHE_TTL_SECONDS=60
 CACHE_TTL_ONE_SECONDS=30
+```
+
+Optional (connection pool limit for serverless; default 10):
+```
+DATABASE_CONNECTION_LIMIT=10
 ```
 
 If `REDIS_URL` is missing or empty, the backend runs without Redis; all reads go to the database and no cache errors are thrown.
