@@ -40,6 +40,8 @@ The server will start on http://localhost:5000
 - `DELETE /api/issues/:id` - Delete issue (admin only)
 - `POST /api/storage/upload-url` - Get presigned upload URL (auth required)
 - `POST /api/storage/download-url` - Get presigned download URL (auth required)
+- `GET /api/secrets/test` - Verify secret retrieval (returns key names only, no values)
+- `POST /api/secrets/refresh` - Clear secret cache for rotation (admin only)
 
 ## CivicTrack: Role enum
 
@@ -593,4 +595,124 @@ STORAGE_MAX_FILE_SIZE_BYTES=2097152
 STORAGE_ALLOWED_MIME_TYPES=image/png,image/jpeg,image/jpg,application/pdf
 ```
 
+**Supabase Vault** (optional; for production secret management):
+```
+SECRET_PROVIDER=supabase
+SUPABASE_DATABASE_URL=postgresql://postgres.[ref]:[password]@...[pooler]:6543/postgres
+SECRET_CACHE_TTL_SECONDS=300
+```
+
 If `REDIS_URL` is missing or empty, the backend runs without Redis; all reads go to the database and no cache errors are thrown.
+
+---
+
+## Cloud Secret Management (Supabase Vault)
+
+For production, **do not store plaintext secrets in `.env` or in the repository**. Use **Supabase Vault** for runtime injection—encrypted secrets stored in your Supabase Postgres.
+
+### Why `.env` is Unsafe for Production
+
+- **Version control**: `.env` can be committed by mistake; secrets persist in git history.
+- **Deployment artifacts**: Build logs, container images, or CI/CD caches may contain env values.
+- **Shared access**: Developers with repo access see all secrets; no granular revocation.
+- **No audit trail**: No record of who accessed which secret when.
+- **Rotation friction**: Changing a secret requires redeploying; no zero-downtime rotation.
+
+### Provider: Supabase Vault
+
+- **Detection**: `SECRET_PROVIDER=supabase`
+- **Storage**: Supabase Vault (Postgres extension, encrypted at rest)
+- **Access**: Direct Postgres connection to query `vault.decrypted_secrets`
+
+When `SECRET_PROVIDER` is not set, the app uses `process.env` (local `.env`) as before.
+
+### Secret Storage Structure
+
+1. Go to **Supabase Dashboard** → **Project Settings** → **Vault** (or Database → Vault).
+2. Create secrets with **names** that match your env keys: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, etc.
+3. The app queries `vault.decrypted_secrets` and maps `name` → `decrypted_secret`.
+
+**Example (SQL):**
+```sql
+SELECT vault.create_secret('postgresql://...', 'DATABASE_URL', 'Database connection string');
+SELECT vault.create_secret('your-jwt-secret', 'JWT_SECRET', 'JWT signing key');
+```
+
+### Required Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SECRET_PROVIDER` | Yes | `supabase` |
+| `SUPABASE_DATABASE_URL` | Yes | Postgres connection string (from Settings → Database → Connection string, URI, Transaction mode) |
+
+Optional:
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SUPABASE_VAULT_KEYS` | All | Comma-separated keys to load. If omitted, loads all vault secrets with a name. |
+| `SECRET_CACHE_TTL_SECONDS` | 300 | Cache TTL |
+
+**Getting `SUPABASE_DATABASE_URL`**: Supabase Dashboard → **Settings** → **Database** → **Connection string** → **URI** (Transaction pooler, port 6543).
+
+### Least Privilege
+
+- The database user in `SUPABASE_DATABASE_URL` needs only **SELECT** on `vault.decrypted_secrets`.
+- Do not grant INSERT/UPDATE/DELETE on vault tables to the app role.
+- Use a dedicated DB role for secret retrieval with minimal privileges.
+
+### Runtime Injection
+
+1. **Instrumentation**: On server startup (`instrumentation.ts`), if `SECRET_PROVIDER=supabase`, the app fetches secrets from Supabase Vault and populates `process.env` for keys not already set.
+2. **Existing code unchanged**: Database config, auth, and other modules continue to read from `process.env`.
+3. **Server-side only**: Secrets are never bundled into client code or sent to the browser.
+4. **No window / global exposure**: No secrets on `window` or in error messages.
+
+### Secret Caching
+
+- **In-memory cache**: Fetched secrets are cached for `SECRET_CACHE_TTL_SECONDS` (default 5 minutes).
+- **Fewer DB calls**: High traffic does not cause repeated vault queries.
+- **Race handling**: Concurrent first requests share one fetch; no duplicate calls.
+- **Manual refresh**: `POST /api/secrets/refresh` (admin) clears cache; next access refetches.
+
+### Rotation Strategy
+
+1. **Update in Vault**: Use Supabase Dashboard or `vault.update_secret()` to rotate secrets.
+2. **App refresh**: Call `POST /api/secrets/refresh` or wait for cache TTL.
+3. **No restart**: Secrets are refetched on next access; no app restart needed.
+
+### Trust Boundaries
+
+- **Trusted**: Server (API routes, server components) – can call `getSecret()`.
+- **Untrusted**: Browser, client components – must never receive secrets.
+- **Semi-trusted**: CI/CD – has deployment secrets; never commit them.
+
+### Proof of Successful Retrieval
+
+Call `GET /api/secrets/test`:
+
+**Success (Supabase Vault configured):**
+```json
+{
+  "ok": true,
+  "provider": "supabase",
+  "keysRetrieved": ["DATABASE_URL", "JWT_SECRET", "JWT_REFRESH_SECRET"],
+  "keyCount": 3,
+  "message": "Secrets retrieved successfully (values not exposed)"
+}
+```
+
+**Success (no cloud):**
+```json
+{
+  "ok": true,
+  "provider": "none",
+  "message": "Cloud secrets not configured (using .env)",
+  "keysRetrieved": []
+}
+```
+
+Never log or return secret values. Only key names (metadata) are exposed.
+
+### CI/CD Integration (Future)
+
+- Store `SECRET_PROVIDER` and `SUPABASE_DATABASE_URL` in CI secrets.
+- Do not store `DATABASE_URL`, `JWT_SECRET`, etc. in CI if using Supabase Vault.
