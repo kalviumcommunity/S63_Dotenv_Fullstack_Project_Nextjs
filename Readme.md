@@ -196,3 +196,55 @@ See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for:
 - Supabase-compatible platform deployment
 - Health checks, autoscaling, security
 
+---
+
+## Custom Domain & SSL (Production)
+
+CivicTrack supports production-grade custom domains and SSL on **Supabase-compatible platforms** (Railway, Render, Fly.io). No AWS or Azure.
+
+See **[DOMAIN_SSL_SETUP.md](./DOMAIN_SSL_SETUP.md)** for:
+
+### Domain Setup Architecture
+
+- **Root domain**: `myapp.com` → CNAME/A to platform host
+- **www**: `www.myapp.com` → CNAME to root or same host
+- **API**: `api.myapp.com` (optional backend subdomain)
+- **Staging**: `staging.myapp.com` for pre-production
+
+### DNS Records
+
+| Record | Type | Target | Purpose |
+|--------|------|--------|---------|
+| Root | A or CNAME | Platform-provided | Main app |
+| www | CNAME | Root or platform | www subdomain |
+| staging | CNAME | Staging service host | Staging env |
+
+### SSL Issuance
+
+- **Automatic**: Railway, Render, Fly.io provision Let's Encrypt certificates.
+- **Validation**: DNS must point to the platform before certificate issuance.
+- **Renewal**: Handled by the platform; no manual steps.
+
+### HTTPS Enforcement
+
+- **Platform-level**: HTTP (80) redirects to HTTPS (443) at the load balancer/proxy.
+- **App-level**: Next.js enforces HTTPS when `X-Forwarded-Proto: https` is present.
+- **HSTS**: `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`
+
+### Screenshot Placeholders
+
+<!-- Add screenshots when available -->
+- **Hosted zone / DNS records**: Platform dashboard showing CNAME/A records
+- **Certificate status**: Platform showing "Issued" or "Active"
+- **Browser lock icon**: HTTPS connection verified in address bar
+- **Load balancer listener rules**: HTTP→HTTPS redirect configuration
+
+### Architecture Notes
+
+| Topic | Summary |
+|-------|---------|
+| **DNS vs Load Balancer** | DNS routes to the platform; the platform handles TLS termination and redirect |
+| **SSL automation** | Certificates are issued and renewed automatically |
+| **Trust & compliance** | HSTS, TLS 1.2+, no self-signed certs |
+| **Scaling** | Add subdomains per environment; no code changes for new domains |
+
