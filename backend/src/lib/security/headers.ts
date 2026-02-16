@@ -15,14 +15,15 @@ const HSTS_MAX_AGE = "31536000"; // 1 year in seconds
  */
 export function shouldRedirectToHttps(request: Request): boolean {
   if (!isProduction) return false;
+  if (process.env.SKIP_HTTPS_REDIRECT === "1") return false;
 
   const proto = request.headers.get("x-forwarded-proto");
   if (proto === "https") return false;
   if (proto === "http") return true;
 
-  // When no header: localhost/dev should not redirect
-  const host = request.headers.get("host") ?? "";
-  if (host.startsWith("localhost") || host.startsWith("127.0.0.1")) return false;
+  // When no header: localhost/dev/docker local should not redirect
+  const host = (request.headers.get("host") ?? "").split(":")[0];
+  if (["localhost", "127.0.0.1", "0.0.0.0"].includes(host)) return false;
 
   // Behind proxy without x-forwarded-proto: assume HTTPS (proxy terminated TLS)
   return false;

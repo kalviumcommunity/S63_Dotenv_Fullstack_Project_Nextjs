@@ -177,3 +177,22 @@ Should issues be visible across cities or city-specific?
 15. Summary
 CivicTrack bridges the trust gap between citizens and urban authorities by combining technology, transparency, and accountability into a single platform.
 
+---
+
+## Docker & Production Deployment
+
+CivicTrack is **containerized** and ready for production deployment with **Supabase** (PostgreSQL, Storage, Vault). No AWS or Azure required.
+
+- **Docker**: Multi-stage production Dockerfiles for backend and frontend
+- **Registry**: GitHub Container Registry (ghcr.io)
+- **CI/CD**: GitHub Actions for build and push
+- **Deployment**: Railway, Render, Fly.io, or any Docker host
+
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for:
+
+- Docker build and run instructions
+- Local validation with `docker compose`
+- Registry push and versioning
+- Supabase-compatible platform deployment
+- Health checks, autoscaling, security
+

@@ -22,6 +22,7 @@ function getSecurityHeaders() {
 }
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   turbopack: {},
 
   async headers() {
