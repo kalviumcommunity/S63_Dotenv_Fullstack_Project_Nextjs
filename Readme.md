@@ -248,3 +248,39 @@ See **[DOMAIN_SSL_SETUP.md](./DOMAIN_SSL_SETUP.md)** for:
 | **Trust & compliance** | HSTS, TLS 1.2+, no self-signed certs |
 | **Scaling** | Add subdomains per environment; no code changes for new domains |
 
+---
+
+## Logging & Monitoring (Production)
+
+CivicTrack uses **structured JSON logging** and **correlation IDs** for observability on Railway, Render, and Fly.io. No AWS or Azure.
+
+See **[LOGGING_MONITORING.md](./LOGGING_MONITORING.md)** for:
+
+### Logging Architecture
+
+- **Structured JSON**: `timestamp`, `level`, `message`, `requestId`, `endpoint`, `method`, `statusCode`, `latency`
+- **Correlation ID**: `X-Request-ID` on every request; propagated through logs
+- **Sensitive data**: Passwords, tokens, and secrets are never logged
+- **Error categories**: `validation_error`, `auth_error`, `system_error`, `external_service_error`
+
+### Example Log
+
+```json
+{
+  "timestamp": "2026-02-16T14:00:00.000Z",
+  "level": "info",
+  "message": "request_start",
+  "requestId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "endpoint": "/api/health",
+  "method": "GET",
+  "environment": "production"
+}
+```
+
+### Platform Integration
+
+- **Railway / Render / Fly.io**: Logs stream to platform dashboard
+- **Third-party**: Logtail, Axiom, Datadog for search, alerts, dashboards
+- **Retention**: 14 days operational, 30 days errors (configurable)
+- **Alerts**: Error spike, high latency, 5xx rate
+

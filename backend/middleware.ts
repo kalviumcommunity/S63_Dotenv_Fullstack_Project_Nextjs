@@ -4,8 +4,14 @@ import {
   buildHttpsRedirectUrl,
   applySecurityHeaders,
 } from "./src/lib/security/headers";
+import { logger } from "./src/lib/logging";
 
 const isProduction = process.env.NODE_ENV === "production";
+const LOG_REQUESTS = process.env.LOG_REQUESTS !== "0";
+
+function getOrCreateRequestId(req: NextRequest): string {
+  return req.headers.get("x-request-id") ?? crypto.randomUUID();
+}
 const ALLOWED_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || ALLOWED_ORIGIN)
   .split(",")
@@ -55,9 +61,24 @@ export function middleware(req: NextRequest) {
     return res;
   }
 
-  const res = NextResponse.next();
+  const requestId = getOrCreateRequestId(req);
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-request-id", requestId);
+  const res = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+  res.headers.set("X-Request-ID", requestId);
   setCorsHeaders(res, allowedOrigin);
   applySecurityHeaders(res.headers);
+
+  if (LOG_REQUESTS) {
+    const pathname = req.nextUrl.pathname;
+    logger.info("request_start", {
+      requestId,
+      endpoint: pathname,
+      method: req.method ?? "GET",
+    });
+  }
 
   return res;
 }
