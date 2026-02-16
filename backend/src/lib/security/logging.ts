@@ -3,19 +3,20 @@
  *
  * Logs sanitization events and rejected inputs.
  * Does NOT store raw malicious payloads or sensitive user data.
+ * Uses structured JSON format for log aggregation.
  */
 
-const LOG_PREFIX = "[SEC]";
+import { logger } from "../logging";
 
 export function logSanitization(fieldName: string, wasTruncated: boolean): void {
   const action = wasTruncated ? "truncated" : "sanitized";
-  console.log(`${LOG_PREFIX} ${action} field=${fieldName}`);
+  logger.info("security_sanitization", { action, fieldName, errorCategory: "validation_error" });
 }
 
 export function logRejectedInput(fieldName: string, reason: string): void {
-  console.warn(`${LOG_PREFIX} rejected field=${fieldName} reason=${reason}`);
+  logger.warn("security_rejected_input", { fieldName, reason, errorCategory: "validation_error" });
 }
 
 export function logSuspiciousInput(context: string, patternType: string): void {
-  console.warn(`${LOG_PREFIX} suspicious input context=${context} pattern=${patternType}`);
+  logger.warn("security_suspicious_input", { context, patternType, errorCategory: "validation_error" });
 }
